@@ -15,7 +15,7 @@ import { Sky } from './sky.js';
 import { sound } from '../ui/sound.js';
 import { Labels } from '../ui/labels.js';
 import { mat, textures, tree, lamp, bench, house, fountain } from './props.js';
-import { MAP_W, MAP_H, BUILDINGS, SPAWN, FOUNTAIN, POND, GROUND, LAKE, DOCK, GARDEN, GAZEBO, treePositions } from '../game/map.js';
+import { MAP_W, MAP_H, BUILDINGS, SPAWN, FOUNTAIN, POND, GROUND, LAKE, DOCK, GARDEN, GAZEBO, PLAZA, inHouse, treePositions } from '../game/map.js';
 
 const PX = 16;                 // 1 mét = 16 px phía server
 const SEND_MS = 66;
@@ -95,7 +95,7 @@ export class WorldView {
     this.fishers = new Map(); // id -> hình cần câu + phao
     this.fishing = null;      // trạng thái câu của mình
     this.setupNight();
-    this.ctrl = new Controller({ bounds: { x0: 1, z0: 1, x1: MAP_W - 1, z1: MAP_H - 1 }, rects: this.rects, circles: this.circles });
+    this.ctrl = new Controller({ bounds: { x0: 1, z0: 1, x1: MAP_W - 1, z1: MAP_H - 1 }, rects: this.rects, circles: this.circles, obbs: this.obbs });
     this.ctrl.onKey = (code) => this.onKey(code);
     this.setCharacter(character);
     this.setupPointer();
@@ -145,16 +145,17 @@ export class WorldView {
 
     // Nhà
     this.signs = [];
+    // Nhà xếp vòng quanh đài phun nước, cửa quay vào giữa (xem PLAZA/BUILDINGS trong map.js)
+    this.obbs = [];
     for (const b of BUILDINGS) {
-      const d = b.h - 1.2, cx = b.doorX, cz = b.y + b.h - 0.35 - d / 2;
-      const h = house({ w: b.w - 0.6, d, wall: b.wall, roof: b.roof });
-      h.position.set(cx, 0, cz);
+      const h = house({ w: b.w, d: b.d, wall: b.wall, roof: b.roof });
+      h.position.set(b.cx, 0, b.cz);
+      h.rotation.y = b.rot;
       s.add(h);
-      this.rects.push({ x: cx - (b.w - 0.6) / 2 - 0.15, z: cz - d / 2 - 0.15, w: b.w - 0.3, d: d + 0.3 });
-      (this.houses ||= []).push({ x0: cx - b.w / 2 - 0.5, x1: cx + b.w / 2 + 0.5, z0: cz - d / 2 - 0.6, z1: cz + d / 2 + 0.4, top: 3.9 }); // vùng camera không được chui vào
-      b.door3d = { x: cx, z: b.y + b.h + 0.25 };
-      (this.doors ||= {})[b.id] = b.door3d;
-      this.signs.push({ el: this.labels.addSign(`${b.icon} ${b.name}`), pos: new THREE.Vector3(cx, 4.1, cz + d / 2) });
+      this.obbs.push(b); // va chạm: hình chữ nhật xoay theo nhà
+      b.door3d = b.door;
+      (this.doors ||= {})[b.id] = b.door;
+      this.signs.push({ el: this.labels.addSign(`${b.icon} ${b.name}`), pos: new THREE.Vector3(b.cx + b.dir.x * (b.d / 2 + 0.2), 4.1, b.cz + b.dir.z * (b.d / 2 + 0.2)) });
     }
 
     // Đài phun nước
@@ -163,8 +164,9 @@ export class WorldView {
     s.add(f);
     this.circles.push({ x: f.position.x, z: f.position.z, r: 1.45 });
 
-    // 🎡 Vòng quay "Hôm nay ăn gì?" cạnh đài phun nước (nghiêng về phía điểm xuất hiện)
-    const W0 = { x: 20.6, z: 14.4, ry: 0.45 };
+    // 🎡 Vòng quay "Hôm nay ăn gì?" cạnh đài phun nước, quay mặt về phía điểm xuất hiện
+    const W0 = { x: PLAZA.x - 4.6, z: PLAZA.z - 0.6 };
+    W0.ry = Math.atan2(SPAWN.x / PX - W0.x, SPAWN.y / PX - W0.z);
     this.wheel = new FoodWheel(s, W0);
     this.wheelFront = { x: W0.x + Math.sin(W0.ry) * 1.5, z: W0.z + Math.cos(W0.ry) * 1.5 };
     this.circles.push({ x: W0.x, z: W0.z, r: 0.75 });
@@ -175,14 +177,17 @@ export class WorldView {
       if (f && this.active && Math.hypot(this.ctrl.pos.x - W0.x, this.ctrl.pos.z - W0.z) < 18) { store.emit('wheel-result', { ...f, by: this.wheelBy }); sound.play('win'); }
     };
 
-    // Đèn & ghế quanh quảng trường
-    for (const [x, z] of [[18.5, 12.5], [29.5, 12.5], [18.5, 21.6], [29.5, 21.6]]) {
+    // Đèn xếp vòng quanh sân + ghế đá quay vào đài phun nước
+    // đèn đứng ở khoảng giữa 2 nhà (không chắn cửa) + 2 cột đèn hai bên lối xuống công viên
+    for (const [deg, rad] of [[36, 10.4], [144, 10.4], [192, 10.4], [240, 10.4], [288, 10.4], [80, 12], [100, 12]]) {
+      const a = (deg * Math.PI) / 180, x = PLAZA.x + Math.cos(a) * rad, z = PLAZA.z + Math.sin(a) * rad;
       const l = lamp(); l.position.set(x, 0, z); s.add(l);
       this.circles.push({ x, z, r: 0.15 });
     }
-    for (const [x, z, ry] of [[20.5, 12.9, 0], [27.5, 12.9, 0], [20.5, 21.2, Math.PI], [27.5, 21.2, Math.PI]]) {
-      const b = bench(); b.position.set(x, 0, z); b.rotation.y = ry; s.add(b);
-      this.rects.push({ x: x - 0.65, z: z - 0.25, w: 1.3, d: 0.5 });
+    for (const deg of [36, 144, 240]) {
+      const a = (deg * Math.PI) / 180, x = PLAZA.x + Math.cos(a) * 6.8, z = PLAZA.z + Math.sin(a) * 6.8;
+      const b = bench(); b.position.set(x, 0, z); b.rotation.y = Math.atan2(PLAZA.x - x, PLAZA.z - z) + Math.PI; s.add(b);
+      this.circles.push({ x, z, r: 0.7 });
     }
 
     this.buildLake();
@@ -299,7 +304,7 @@ export class WorldView {
     const m = new THREE.Matrix4(), col = new THREE.Color();
     const cs = ['#ff6b6b', '#ffd166', '#ff9ec4', '#c77dff', '#ffffff', '#ff8a4c'];
     let n = 0, seed = 9; const r = () => ((seed = (seed * 1664525 + 1013904223) >>> 0) / 4294967296);
-    for (const [bx, bz, bw, bd] of [[12, 35.5, 6, 2], [12, 39, 6, 2], [31, 35.5, 6, 2], [31, 39, 6, 2]]) {
+    for (const [bx, bz, bw, bd] of [[12, 37.5, 6, 2], [12, 41, 6, 2], [31, 37.5, 6, 2], [31, 41, 6, 2]]) {
       const bed = new THREE.Mesh(new THREE.BoxGeometry(bw, 0.16, bd), mat('#6b4a32'));
       bed.position.set(bx + bw / 2, 0.08, bz + bd / 2); bed.receiveShadow = true; s.add(bed);
       this.rects.push({ x: bx, z: bz, w: bw, d: bd });
@@ -664,7 +669,7 @@ export class WorldView {
     if (near !== this.nearDoor) { this.nearDoor = near; store.emit('near-door', near); }
 
     // camera bám theo, ánh nắng + bóng đổ đi theo nhân vật
-    this.rig.update(dt, c.pos.x, c.pos.z, this.camera, (p) => p.y > 0.4 && !this.houses.some((h) => p.y < h.top && p.x > h.x0 && p.x < h.x1 && p.z > h.z0 && p.z < h.z1)); // không cho camera chui vào nhà
+    this.rig.update(dt, c.pos.x, c.pos.z, this.camera, (p) => p.y > 0.4 && !(p.y < 3.9 && BUILDINGS.some((b) => inHouse(b, p.x, p.z, 0.5)))); // không cho camera chui vào nhà
     this.sun.position.set(c.pos.x - 8, 18, c.pos.z + 6);
     this.sun.target.position.set(c.pos.x, 0, c.pos.z);
 
@@ -706,9 +711,11 @@ export class WorldView {
   /** Rời phòng → đứng trước cửa tòa nhà đó. */
   placeAtDoor(roomId) {
     const b = BUILDINGS.find((x) => x.id === roomId);
-    if (b) this.ctrl.pos = { x: b.door3d.x, z: b.door3d.z + 0.4 };
-    this.ctrl.angle = 0;
-    this.me.root.rotation.y = 0;
+    if (b) this.ctrl.pos = { x: b.door.x + b.dir.x * 0.6, z: b.door.z + b.dir.z * 0.6 };
+    const ang = b ? Math.atan2(b.dir.x, b.dir.z) : 0;
+    this.ctrl.angle = ang;
+    this.me.root.rotation.y = ang;
+    this.rig.yaw = this.rig.sYaw = ang + Math.PI; // camera sau lưng, nhìn ra quảng trường
     this.ctrl.target = null;
     this.lastSent.x = NaN; // buộc gửi lại vị trí sảnh (trong phòng tranh mình đã gửi tọa độ khác)
   }

@@ -45,6 +45,13 @@ export class Controller {
       if ((x - cx) ** 2 + (z - cz) ** 2 < r * r) return true;
     }
     for (const c of w.circles) if ((x - c.x) ** 2 + (z - c.z) ** 2 < (r + c.r) ** 2) return true;
+    // hình chữ nhật xoay (nhà quay vào quảng trường): đổi điểm sang hệ tọa độ của nhà
+    for (const b of w.obbs || []) {
+      const dx = x - b.cx, dz = z - b.cz, cs = Math.cos(b.rot), sn = Math.sin(b.rot);
+      const lx = dx * cs - dz * sn, lz = dx * sn + dz * cs;
+      const qx = Math.max(-b.w / 2 - 0.15, Math.min(lx, b.w / 2 + 0.15)), qz = Math.max(-b.d / 2 - 0.15, Math.min(lz, b.d / 2 + 0.15));
+      if ((lx - qx) ** 2 + (lz - qz) ** 2 < r * r) return true;
+    }
     return false;
   }
 

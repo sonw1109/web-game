@@ -8,26 +8,53 @@ function rng(seed) {
   return () => ((seed = (seed * 1664525 + 1013904223) >>> 0) / 4294967296);
 }
 
-/** Các tòa nhà (tọa độ theo tile). Cửa ở giữa cạnh dưới. */
-export const BUILDINGS = [
-  { id: 'cinema', name: 'Rạp phim', icon: '🎬', x: 5, y: 3, w: 10, h: 6, roof: '#c0392b', wall: '#f3e1c7' },
-  { id: 'draw', name: 'Phòng Vẽ', icon: '🎨', x: 33, y: 3, w: 9, h: 6, roof: '#8e5cd6', wall: '#e9f0ff' },
-  { id: 'quiz', name: 'Phòng Quiz', icon: '❓', x: 6, y: 21, w: 9, h: 6, roof: '#2f80c9', wall: '#fff4d6' },
-  { id: 'caro', name: 'Quán Caro', icon: '⭕', x: 33, y: 21, w: 9, h: 6, roof: '#2e9d6a', wall: '#f6e8dc' },
-  { id: 'gallery', name: 'Phòng Tranh', icon: '🖼️', x: 19, y: 3, w: 10, h: 6, roof: '#b8860b', wall: '#fbf6ec' },
-  { id: 'typing', name: 'Đua Gõ Phím', icon: '⌨️', x: 15, y: 22, w: 7, h: 6, roof: '#e67e22', wall: '#fdf2e9' },
-  { id: 'baucua', name: 'Sòng Bầu Cua', icon: '🎲', x: 25, y: 22, w: 7, h: 6, roof: '#b71c1c', wall: '#fff3e0' },
-].map((b) => ({ ...b, doorX: b.x + Math.floor(b.w / 2), doorY: b.y + b.h }));
+// ---- Quảng trường tròn: 7 ngôi nhà xếp vòng quanh đài phun nước, cửa đều quay vào giữa ----
+export const PLAZA = { x: 24, z: 19, r: 12.6 };   // tâm (= đài phun nước) và bán kính sân lát đá
+const RING = 14.6;                                // khoảng cách từ tâm tới tâm mỗi ngôi nhà
+const HOUSE_W = 7.2, HOUSE_D = 4.6;               // mặt tiền & chiều sâu
+// Góc đặt nhà (độ, 0° = hướng đông, 90° = hướng nam): 5 khe đều 48°, chừa 2 lối rộng 60°
+// ở phía nam (xuống công viên) và phía đông-đông bắc (ra hồ câu, vườn hoa đào).
+const SLOTS = [120, 168, 216, 264, 312, 12, 60];
 
-export const SPAWN = { x: 24 * TILE, y: 20 * TILE };
-export const FOUNTAIN = { x: 24 * TILE, y: 17 * TILE, r: 22 };
-export const POND = { x: 2, y: 11, w: 5, h: 4 };
+const DEFS = [
+  { id: 'typing', name: 'Đua Gõ Phím', icon: '⌨️', roof: '#e67e22', wall: '#fdf2e9' },
+  { id: 'quiz', name: 'Phòng Quiz', icon: '❓', roof: '#2f80c9', wall: '#fff4d6' },
+  { id: 'cinema', name: 'Rạp phim', icon: '🎬', roof: '#c0392b', wall: '#f3e1c7' },
+  { id: 'gallery', name: 'Phòng Tranh', icon: '🖼️', roof: '#b8860b', wall: '#fbf6ec' },
+  { id: 'draw', name: 'Phòng Vẽ', icon: '🎨', roof: '#8e5cd6', wall: '#e9f0ff' },
+  { id: 'caro', name: 'Quán Caro', icon: '⭕', roof: '#2e9d6a', wall: '#f6e8dc' },
+  { id: 'baucua', name: 'Sòng Bầu Cua', icon: '🎲', roof: '#b71c1c', wall: '#fff3e0' },
+];
+
+/**
+ * Mỗi nhà: tâm (cx, cz), góc xoay rot (cửa hướng về tâm quảng trường), kích thước w × d,
+ * vị trí cửa door {x, z} và hướng nhìn ra quảng trường dir {x, z}.
+ */
+export const BUILDINGS = DEFS.map((b, i) => {
+  const a = (SLOTS[i] * Math.PI) / 180;
+  const cx = PLAZA.x + Math.cos(a) * RING, cz = PLAZA.z + Math.sin(a) * RING;
+  const dir = { x: -Math.cos(a), z: -Math.sin(a) };              // hướng từ nhà vào giữa quảng trường
+  const rot = Math.atan2(dir.x, dir.z);                          // mặt +z của nhà (có cửa) quay theo dir
+  const k = HOUSE_D / 2 + 0.8;
+  return { ...b, cx, cz, rot, w: HOUSE_W, d: HOUSE_D, dir, door: { x: cx + dir.x * k, z: cz + dir.z * k } };
+});
+
+/** Điểm (x, z) có nằm trong nhà (hình chữ nhật xoay, nới thêm margin) không. */
+export function inHouse(b, x, z, margin = 0) {
+  const dx = x - b.cx, dz = z - b.cz, c = Math.cos(b.rot), s = Math.sin(b.rot);
+  const lx = dx * c - dz * s, lz = dx * s + dz * c; // đổi sang hệ tọa độ của nhà
+  return Math.abs(lx) <= b.w / 2 + margin && Math.abs(lz) <= b.d / 2 + margin;
+}
+
+export const SPAWN = { x: PLAZA.x * TILE, y: (PLAZA.z + 5) * TILE };
+export const FOUNTAIN = { x: PLAZA.x * TILE, y: PLAZA.z * TILE, r: 22 };
+export const POND = { x: 2, y: 9, w: 5, h: 4 };
 // Khu mới khi mở rộng bản đồ
 export const LAKE = { x: 44, y: 20, w: 14, h: 9 };     // 🎣 hồ câu cá
 export const DOCK = { x: 50, y: 25, w: 2, h: 5 };      // bến gỗ đi ra giữa hồ
 export const GARDEN = { x: 46, y: 3, w: 16, h: 11 };   // 🌸 vườn hoa đào
-export const PARK = { x: 19, y: 35, w: 11, h: 7 };     // 🏯 công viên + chòi nghỉ
-export const GAZEBO = { x: 24.5, y: 38.5 };
+export const PARK = { x: 19, y: 37, w: 11, h: 7 };     // 🏯 công viên + chòi nghỉ
+export const GAZEBO = { x: 24.5, y: 40.5 };
 
 // ---- Lưới mặt đất ----
 // 0 cỏ, 1 đường đá, 2 quảng trường, 3 nước, 4 cỏ vườn đào (có cánh hoa)
@@ -37,18 +64,15 @@ function buildGround() {
     for (let j = y; j < y + h; j++) for (let i = x; i < x + w; i++) if (g[j]?.[i] !== undefined) g[j][i] = v;
   };
   fill(GARDEN.x, GARDEN.y, GARDEN.w, GARDEN.h, 4); // vườn đào
-  fill(3, 16, 58, 2, 1);          // đường ngang chính (kéo dài sang khu mới)
-  fill(23, 9, 2, 33, 1);          // đường dọc chính: cửa Phòng Tranh → công viên
-  fill(6, 30, 55, 2, 1);          // đường ngang dưới
-  fill(59, 16, 2, 16, 1);         // đường dọc phía đông (ra hồ câu)
-  fill(53, 8, 2, 8, 1);           // lối vào vườn đào
+  // sân lát đá hình tròn quanh đài phun nước
+  for (let j = 0; j < MAP_H; j++) for (let i = 0; i < MAP_W; i++) if (Math.hypot(i + 0.5 - PLAZA.x, j + 0.5 - PLAZA.z) < PLAZA.r) g[j][i] = 2;
+  fill(Math.round(PLAZA.x + PLAZA.r - 1), 15, 61 - Math.round(PLAZA.x + PLAZA.r - 1), 2, 1); // lối phía đông → hồ, vườn đào
+  fill(23, Math.round(PLAZA.z + PLAZA.r - 1), 2, PARK.y - Math.round(PLAZA.z + PLAZA.r - 1), 1); // lối phía nam → công viên
+  fill(59, 15, 2, 17, 1);         // đường dọc phía đông (ra hồ câu)
+  fill(41, 30, 20, 2, 1);         // đường dưới hồ (nối bến câu)
+  fill(53, 8, 2, 7, 1);           // lối vào vườn đào
   fill(51, 5, 6, 4, 2);           // sân đá giữa vườn
-  fill(18, 12, 12, 10, 2);        // quảng trường
   fill(PARK.x, PARK.y, PARK.w, PARK.h, 2); // sân công viên
-  for (const b of BUILDINGS) {
-    if (b.y < 15) fill(b.doorX - 1, b.doorY, 2, 16 - b.doorY, 1); // nhà phía trên → nối đường chính
-    else fill(b.doorX - 1, b.doorY, 2, 30 - b.doorY, 1);          // nhà phía dưới → nối đường dưới
-  }
   fill(POND.x, POND.y, POND.w, POND.h, 3);
   fill(LAKE.x, LAKE.y, LAKE.w, LAKE.h, 3);
   fill(DOCK.x, LAKE.y + LAKE.h, DOCK.w, 30 - LAKE.y - LAKE.h, 1); // lối từ đường dưới ra bến
@@ -60,9 +84,7 @@ export function isFree(tx, ty) {
   if (tx < 2 || ty < 2 || tx >= MAP_W - 2 || ty >= MAP_H - 2) return false;
   if (GROUND[ty][tx] !== 0) return false;
   if (Math.hypot(tx + 0.5 - GAZEBO.x, ty + 0.5 - GAZEBO.y) < 3) return false;
-  for (const b of BUILDINGS) {
-    if (tx >= b.x - 1 && tx <= b.x + b.w && ty >= b.y - 2 && ty <= b.doorY + 1) return false;
-  }
+  for (const b of BUILDINGS) if (inHouse(b, tx + 0.5, ty + 0.5, 1.6)) return false;
   return true;
 }
 
