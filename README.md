@@ -51,7 +51,7 @@ Muốn thêm từ cho Vẽ & Đoán: sửa `server/data/words-vi.json`.
 
 🤖 **Bot chơi cùng:** trong phòng game bấm **🤖 Chơi với bot** để mời bot (bấm lần nữa để mời ra); bot tự về khi phòng hết người. Tắt hẳn: env `BOTS=off`.
 
-👑 **Admin:** đặt biến môi trường `ADMIN_PASSWORD` (khi chạy local mặc định là `admin`; trên Render bỏ trống = tắt admin). Đăng nhập: nút ⚙️ → 🔑 Đăng nhập admin, hoặc gõ `/admin <mật khẩu>` trong chat (mật khẩu không hiện cho người khác). Admin có 👑 trước tên; trong Sòng Bầu Cua có nút +100 / +500 / +1k / ✎ (nhập số, âm để trừ) và tặng cả bàn. Thoát: nút "Thoát admin" hoặc `/admin off`.
+👑 **Admin:** đã có sẵn mật khẩu admin dựng trong code (chỉ lưu mã băm scrypt, repo công khai không lộ mật khẩu – hỏi chủ server). Muốn đổi: đặt biến môi trường `ADMIN_PASSWORD` (được ưu tiên). Khi chạy local gõ `admin` cũng được. Đăng nhập: nút ⚙️ → 🔑 Đăng nhập admin, hoặc gõ `/admin <mật khẩu>` trong chat (mật khẩu không hiện cho người khác). Admin có 👑 trước tên; trong Sòng Bầu Cua có nút +100 / +500 / +1k / ✎ (nhập số, âm để trừ) và tặng cả bàn. Thoát: nút "Thoát admin" hoặc `/admin off`.
 
 📱 **Caro trên điện thoại:** đang chơi tự phóng to bàn cờ (nhìn từ trên xuống), chụm 2 ngón để zoom, kéo để di chuyển; chạm 1 lần xem trước, chạm lần 2 để đặt quân.
 

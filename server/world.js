@@ -1,6 +1,6 @@
 // Quản lý người chơi trên bản đồ chung: vị trí, phòng, chat, emoji.
 import { EventEmitter } from 'node:events';
-import { timingSafeEqual, createHash } from 'node:crypto';
+import { timingSafeEqual, createHash, scryptSync } from 'node:crypto';
 const TICK_MS = 1000 / 15;
 const EMOJIS = ['😂', '❤️', '👍', '😮', '😢', '🔥'];
 const ROOMS = new Set(['lobby', 'cinema', 'draw', 'quiz', 'caro', 'gallery', 'typing', 'baucua']);
@@ -26,13 +26,21 @@ const emoteLimit = rateLimiter(4, 3000);  // hành động (nhảy, cúi chào�
 const fxLimit = rateLimiter(1, 8000);     // pháo hoa: 1 lần / 8 giây mỗi người
 export const EMOTES = ['dance', 'bow', 'wave', 'spin'];
 
-// 👑 Admin: mật khẩu riêng (ADMIN_PASSWORD). Production mà chưa đặt → tắt hẳn chế độ admin.
-const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || (process.env.NODE_ENV === 'production' ? '' : 'admin');
+// 👑 Admin: mật khẩu riêng.
+// - Có biến môi trường ADMIN_PASSWORD → dùng mật khẩu đó.
+// - Không có → dùng mật khẩu dựng sẵn; trong code CHỈ lưu mã băm scrypt (repo công khai vẫn không lộ mật khẩu).
+// - Khi chạy local (dev) thì gõ "admin" cũng được, cho tiện thử.
+const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || '';
+const BUILTIN = { salt: '4601ad89a63338ce2a21fdd14a6210dd', hash: '2855389d32956eb529e59841416a345d7c60ff42750ddd03e2c0166aef6b39ca' };
+const DEV_PASSWORD = process.env.NODE_ENV === 'production' ? '' : 'admin';
 const sha = (s) => createHash('sha256').update(String(s)).digest();
 /** So mật khẩu admin (thời gian so sánh cố định, chống đoán theo thời gian). */
-export function checkAdmin(pw, real = ADMIN_PASSWORD) {
-  if (!real || typeof pw !== 'string' || !pw) return false;
-  return timingSafeEqual(sha(pw), sha(real));
+export function checkAdmin(pw, real = ADMIN_PASSWORD, builtin = BUILTIN, dev = DEV_PASSWORD) {
+  if (typeof pw !== 'string' || !pw || pw.length > 200) return false;
+  if (real) return timingSafeEqual(sha(pw), sha(real));
+  if (dev && timingSafeEqual(sha(pw), sha(dev))) return true;
+  if (!builtin?.hash) return false;
+  return timingSafeEqual(scryptSync(pw, builtin.salt, 32), Buffer.from(builtin.hash, 'hex'));
 }
 const adminTry = rateLimiter(5, 60_000); // tối đa 5 lần thử / phút
 
@@ -118,7 +126,6 @@ export function registerWorld(io) {
     const adminLogin = (pw) => {
       const p = players.get(socket.id);
       if (!p) return { error: 'Chưa vào Hội Quán' };
-      if (!ADMIN_PASSWORD) return { error: 'Chế độ admin chưa bật (cần đặt ADMIN_PASSWORD trên server)' };
       if (!adminTry(socket.id)) return { error: 'Thử sai nhiều quá, đợi 1 phút nhé' };
       if (!checkAdmin(pw)) return { error: 'Sai mật khẩu admin' };
       p.admin = true;
