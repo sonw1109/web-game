@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { PALETTE, DEFAULT_APPEARANCE, randomAppearance } from '../game/character.js';
 import { Avatar } from '../three/avatar.js';
 import { cushion } from '../three/props.js';
+import { Pet } from '../three/pet.js';
 
 // Xem trước nhân vật 3D (renderer nhỏ riêng, tạo 1 lần)
 let preview = null;
@@ -43,11 +44,12 @@ export function showCharacterCreate(existing) {
     for (const box of form.querySelectorAll('[data-part]')) {
       const part = box.dataset.part;
       box.replaceChildren();
-      if (part === 'hairStyle') {
-        PALETTE.hairStyles.forEach((label, i) => {
+      if (part === 'hairStyle' || part === 'pet') {
+        const list = part === 'pet' ? PALETTE.pets : PALETTE.hairStyles;
+        list.forEach((label, i) => {
           const b = document.createElement('button');
-          b.type = 'button'; b.className = `chip${app.hairStyle === i ? ' active' : ''}`; b.textContent = label;
-          b.onclick = () => { app.hairStyle = i; renderPickers(); };
+          b.type = 'button'; b.className = `chip${(app[part] | 0) === i ? ' active' : ''}`; b.textContent = label;
+          b.onclick = () => { app[part] = i; renderPickers(); };
           box.append(b);
         });
       } else {
@@ -74,6 +76,9 @@ export function showCharacterCreate(existing) {
       pv.avatar = new Avatar(app);
       pv.avatar.root.position.y = 0.12;
       pv.scene.add(pv.avatar.root);
+      pv.pet?.dispose();
+      pv.pet = app.pet ? new Pet(['', 'cat', 'dog', 'chick', 'bunny'][app.pet], pv.scene) : null;
+      if (pv.pet) { pv.pet.root.position.set(0.48, 0.02, 0.25); pv.pet.root.rotation.y = -0.5; }
       pv.key = key;
     }
     t += 1 / 30;

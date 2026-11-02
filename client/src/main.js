@@ -23,6 +23,9 @@ import { rtc } from './net/rtc.js';
 import { initVideoGrid } from './ui/videoGrid.js';
 import { sound } from './ui/sound.js';
 import { createJoystick } from './ui/joystick.js';
+import { initFishing } from './ui/fishing.js';
+import { initPhoto } from './ui/photo.js';
+import { initMinimap } from './ui/minimap.js';
 import { Q, PRESETS, isTouch, saveChoice, savedChoice } from './three/quality.js';
 import { BUILDINGS } from './game/map.js';
 
@@ -139,6 +142,13 @@ function setupHud() {
     bar.append(b);
   });
   $('btn-fireworks').onclick = () => socket.emit('fx:fireworks');
+  // 📸 chụp ảnh (nút ở sảnh + trong phòng, phím P)
+  const photo = initPhoto({ getEngine: () => engine, toast });
+  $('btn-photo').onclick = $('btn-photo-room').onclick = () => photo.shoot();
+  window.addEventListener('keydown', (e) => {
+    if (e.code === 'KeyP' && !e.repeat && !['INPUT', 'TEXTAREA'].includes(document.activeElement?.tagName) && !e.ctrlKey && !e.metaKey) photo.shoot();
+  });
+  initMinimap({ getWorld: () => world });
   store.on('time', ({ text }) => { $('clock').textContent = `· ${text}`; });
   $('emoji-toggle').onclick = () => document.body.classList.toggle('emoji-open');
   bar.addEventListener('click', () => document.body.classList.remove('emoji-open'));
@@ -162,19 +172,50 @@ function setupHud() {
   $('interact-hint').onclick = () => {
     const b = world?.nearDoor;
     if (b) store.emit('enter-room', b.id);
+    else if (world?.nearWheel) world.spinWheel();
+    else if (world?.canFish() && !world.fishing) world.castLine();
   };
 
   // Số người online
   store.on('players-changed', () => { $('online-count').textContent = store.players.size; });
 
-  // Gợi ý "Nhấn E"
-  store.on('near-door', (b) => {
-    const hint = $('interact-hint');
-    if (!b) { hint.hidden = true; return; }
-    hint.innerHTML = document.body.classList.contains('touch') ? `👆 Chạm để vào ${b.icon} <b></b>` : `Nhấn <kbd>E</kbd> để vào ${b.icon} <b></b>`;
-    hint.querySelector('b').textContent = b.name;
-    hint.hidden = false;
+  // Gợi ý "Nhấn E": vào phòng / câu cá
+  const fishing = initFishing();
+  const hintState = { door: null, fish: false, wheel: false };
+  const touch = () => document.body.classList.contains('touch');
+  const paintHint = () => {
+    const hint = $('interact-hint'), b = hintState.door;
+    if (b) {
+      hint.innerHTML = touch() ? `👆 Chạm để vào ${b.icon} <b></b>` : `Nhấn <kbd>E</kbd> để vào ${b.icon} <b></b>`;
+      hint.querySelector('b').textContent = b.name;
+    } else if (hintState.wheel) {
+      hint.innerHTML = `${touch() ? '👆 Chạm' : 'Nhấn <kbd>E</kbd>'} để quay 🎡 <b>Hôm nay ăn gì?</b>`;
+    } else if (hintState.fish) {
+      hint.innerHTML = `${touch() ? '👆 Chạm' : 'Nhấn <kbd>E</kbd>'} để câu cá 🎣 <button class="btn btn-ghost btn-sm" data-book>📖 Sổ cá</button>`;
+      hint.querySelector('[data-book]').onclick = (e) => { e.stopPropagation(); fishing.openBook(); };
+    }
+    hint.hidden = !b && !hintState.fish && !hintState.wheel;
+  };
+  store.on('near-door', (b) => { hintState.door = b; paintHint(); });
+  store.on('near-fish', (v) => { hintState.fish = v; paintHint(); });
+  store.on('near-wheel', (v) => { hintState.wheel = v; paintHint(); });
+
+  // 🎡 Thẻ kết quả vòng quay món ăn
+  const wp = $('wheel-panel');
+  let wpTimer = null;
+  store.on('wheel-result', (f) => {
+    clearTimeout(wpTimer);
+    wp.innerHTML = '<div class="fish-icon"></div><div class="fish-info"><small></small><b></b><span class="tag"></span><p></p><button class="btn btn-primary btn-sm">🎡 Quay lại</button></div>';
+    wp.querySelector('.fish-icon').textContent = f.icon;
+    wp.querySelector('small').textContent = `${f.by ?? 'Ai đó'} quay trúng:`;
+    wp.querySelector('b').textContent = f.name;
+    wp.querySelector('.tag').textContent = f.region;
+    wp.querySelector('p').textContent = f.desc;
+    wp.querySelector('button').onclick = () => { wp.hidden = true; world?.spinWheel(); };
+    wp.hidden = false;
+    wpTimer = setTimeout(() => { wp.hidden = true; }, 9000);
   });
+  store.on('wheel-spin', () => { wp.hidden = true; });
 
   // Đổi nhân vật
   $('btn-edit-char').onclick = async () => {

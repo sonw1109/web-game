@@ -41,6 +41,7 @@
           <div class="field"><span>Màu tóc</span><div class="swatches" data-part="hair"></div></div>
           <div class="field"><span>Áo</span><div class="swatches" data-part="shirt"></div></div>
           <div class="field"><span>Quần</span><div class="swatches" data-part="pants"></div></div>
+          <div class="field"><span>Thú cưng</span><div class="chips" data-part="pet"></div></div>
         </div>
       </div>
       <button class="btn btn-primary" type="submit">Bắt đầu ▶</button>
@@ -56,11 +57,15 @@
     <div class="hud-top">
       <div class="pill" id="online-pill">🟢 <span id="online-count">1</span> online <span id="clock" class="clock"></span></div>
       <button class="btn btn-ghost btn-sm" id="btn-fireworks" title="Bắn pháo hoa (F)">🎆</button>
+      <button class="btn btn-ghost btn-sm" id="btn-photo" title="Chụp ảnh (P)">📸</button>
       <button class="btn btn-ghost btn-sm" id="btn-quality" title="Chất lượng đồ họa">⚙️</button>
       <button class="btn btn-ghost btn-sm" id="btn-sound" title="Bật/tắt âm thanh">🔔</button>
       <button class="btn btn-ghost btn-sm" id="btn-edit-char" title="Đổi nhân vật">👤 Nhân vật</button>
     </div>
     <div id="interact-hint" class="interact-hint" hidden></div>
+    <div id="fish-panel" class="fish-panel" hidden></div>
+    <div id="wheel-panel" class="fish-panel wheel-panel" hidden></div>
+    <div id="minimap" class="minimap"><canvas></canvas><button data-toggle title="Thu nhỏ / phóng to bản đồ">🗺️</button></div>
     <div class="emoji-bar" id="emoji-bar"></div>
     <button class="emoji-toggle" id="emoji-toggle" title="Emoji">😊</button>
     <div class="quality-menu glass" id="quality-menu" hidden></div>
@@ -82,6 +87,7 @@
     <div id="rtc-tiles"></div>
     <div class="room-bar-actions">
       <button class="btn btn-ghost btn-sm" id="btn-bot" hidden>🤖 Chơi với bot</button>
+      <button class="btn btn-icon" id="btn-photo-room" title="Chụp ảnh">📸</button>
       <button class="btn btn-icon rtc-btn off" id="btn-mic" title="Bật/tắt mic (M)">🎙️</button>
       <button class="btn btn-icon rtc-btn off" id="btn-cam" title="Bật/tắt cam">📷</button>
       <button class="btn btn-ghost btn-sm" id="btn-leave" title="Esc">⬅ Rời phòng</button>
@@ -132,6 +138,26 @@
   <section id="room-gallery" class="room" hidden></section>
   <section id="room-typing" class="room" hidden></section>
   <section id="room-baucua" class="room" hidden></section>
+
+  <!-- Sổ tay câu cá -->
+  <div id="fish-book" class="modal" hidden>
+    <div class="modal-card glass">
+      <header><h2 class="pixel">📖 Sổ tay câu cá</h2><button class="btn btn-icon" data-close>✕</button></header>
+      <div class="book-body"></div>
+    </div>
+  </div>
+  <!-- Ảnh chụp -->
+  <div id="photo-count" class="photo-count pixel" hidden></div>
+  <div id="photo-modal" class="modal" hidden>
+    <div class="modal-card glass photo-card">
+      <header><h2 class="pixel">📸 Ảnh chụp</h2><button class="btn btn-icon" data-close>✕</button></header>
+      <img id="photo-img" alt="Ảnh chụp Hội Quán" />
+      <div class="photo-actions">
+        <a class="btn btn-ghost" id="photo-download">⬇ Tải về</a>
+        <button class="btn btn-primary" id="photo-hang">🖼️ Treo lên Phòng Tranh</button>
+      </div>
+    </div>
+  </div>
 
   <script type="module" src="/src/main.js"></script>
 </body>

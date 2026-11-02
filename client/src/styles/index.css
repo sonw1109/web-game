@@ -738,10 +738,10 @@ body.touch.in-room:not([data-room="gallery"]) .joystick, body.touch #game[hidden
 .bc-cell .total { position: absolute; top: 4px; right: 6px; font-size: 10px; color: #8a5a3c; }
 .bc-cell.win { box-shadow: 0 0 0 4px #ffd166, 0 0 26px #ffd166; animation: pulse2 .5s infinite alternate; }
 .bc-bar { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; justify-content: center; }
-.chips { display: flex; gap: 6px; }
-.chip { width: 44px; height: 44px; border-radius: 50%; border: 3px dashed rgba(255,255,255,.7); font-weight: 700; font-size: 13px; cursor: pointer; color: #fff; box-shadow: 0 3px 0 rgba(0,0,0,.35); }
-.chip-10 { background: #2f9e44; } .chip-50 { background: #1c7ed6; } .chip-100 { background: #e03e52; } .chip-500 { background: #7048e8; }
-.chip.active { outline: 3px solid #ffd166; transform: translateY(-3px); }
+.bc-chips { display: flex; gap: 6px; }
+.bc-chip { width: 44px; height: 44px; border-radius: 50%; border: 3px dashed rgba(255,255,255,.7); font-weight: 700; font-size: 13px; cursor: pointer; color: #fff; box-shadow: 0 3px 0 rgba(0,0,0,.35); }
+.bc-chip-10 { background: #2f9e44; } .bc-chip-50 { background: #1c7ed6; } .bc-chip-100 { background: #e03e52; } .bc-chip-500 { background: #7048e8; }
+.bc-chip.active { outline: 3px solid #ffd166; transform: translateY(-3px); }
 .bc-history { display: flex; flex-direction: column; gap: 4px; }
 .bc-roll { background: var(--surface); border-radius: 8px; padding: 4px 10px; font-size: 20px; letter-spacing: 4px; }
 .scoreboard .loss { color: var(--danger); font-weight: 600; }
@@ -751,8 +751,80 @@ body.touch.in-room:not([data-room="gallery"]) .joystick, body.touch #game[hidden
   .typing-card { padding: 10px 12px; gap: 8px; }
   .bc-cell .ic { font-size: 24px; }
   .bc-cell { padding: 5px 2px; }
-  .chip { width: 38px; height: 38px; font-size: 12px; }
+  .bc-chip { width: 38px; height: 38px; font-size: 12px; }
   .bc-status { font-size: 14px; padding: 6px 14px; }
   .emoji-bar { max-height: 60vh; overflow-y: auto; }
   .emoji-sep { width: auto; height: 1px; margin: 2px 4px; }
 }
+#room-draw .guess-bar { display: flex; gap: 8px; width: min(560px, 100%); padding: 8px; background: rgba(16,12,10,.85); backdrop-filter: blur(12px); border: 1px solid rgba(255,209,102,.4); border-radius: 14px; box-shadow: 0 0 24px rgba(255,209,102,.15); }
+#room-draw .guess-bar input { font-size: 16px; }
+#room-draw .guess-bar[hidden] { display: none; }
+
+/* =====================================================================
+   🎣 Câu cá · 📸 Chụp ảnh · 🗺️ Bản đồ nhỏ · 📖 Sổ tay
+   ===================================================================== */
+.interact-hint .btn-sm { margin-left: 8px; padding: 3px 10px; font-size: 13px; }
+.fish-panel {
+  position: absolute; left: 50%; top: 70px; transform: translateX(-50%); pointer-events: auto; z-index: 12;
+  display: flex; align-items: center; gap: 12px; padding: 10px 16px; border-radius: 16px;
+  background: rgba(16,12,10,.85); backdrop-filter: blur(12px); border: 1px solid rgba(255,230,200,.18); box-shadow: 0 12px 30px rgba(0,0,0,.4);
+}
+.fish-panel.bite { flex-direction: column; gap: 2px; cursor: pointer; background: linear-gradient(135deg, #ff5f6d, #ff8a4c); animation: pulse2 .25s infinite alternate; }
+.fish-panel.bite b { font-size: 26px; font-family: var(--font-pixel); }
+.fish-panel.result { animation: pop .3s ease-out; }
+.fish-icon { font-size: 44px; line-height: 1; }
+.fish-info { display: flex; flex-direction: column; gap: 2px; }
+.fish-info .tag, .book-cell .tag { font-size: 11px; padding: 1px 8px; border-radius: 99px; align-self: flex-start; background: rgba(255,255,255,.12); }
+.fish-info .new { color: #ffd166; font-weight: 700; font-size: 13px; }
+.r-rare .tag { background: #1c7ed6; color: #fff; }
+.r-legend .tag { background: linear-gradient(90deg, #ffd166, #ff8a4c); color: #3a2000; }
+.r-junk .tag { background: #555; }
+.fish-panel.r-rare { box-shadow: 0 0 0 2px #4dabf7, 0 0 30px rgba(77,171,247,.5); }
+.fish-panel.r-legend { box-shadow: 0 0 0 2px #ffd166, 0 0 40px rgba(255,209,102,.7); }
+
+.modal { position: fixed; inset: 0; z-index: 80; background: rgba(5,5,12,.7); display: grid; place-items: center; padding: 16px; animation: fadeIn .2s; }
+.modal-card { width: min(860px, 100%); max-height: 88vh; overflow: auto; padding: 18px; display: flex; flex-direction: column; gap: 12px; }
+.modal-card header { display: flex; justify-content: space-between; align-items: center; }
+.book-body { display: grid; grid-template-columns: 1fr 230px; gap: 16px; }
+.book-body p { margin: 0 0 10px; }
+.book-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(118px, 1fr)); gap: 8px; }
+.book-cell { display: flex; flex-direction: column; align-items: center; gap: 3px; text-align: center; padding: 10px 6px; border-radius: 12px; background: var(--surface); border: 1px solid var(--border); font-size: 13px; }
+.book-cell .fish-icon { font-size: 34px; }
+.book-cell small { color: var(--muted); font-size: 11px; }
+.book-cell.unknown { opacity: .55; filter: grayscale(1); }
+.book-cell.r-rare { border-color: #4dabf7; } .book-cell.r-legend { border-color: #ffd166; box-shadow: 0 0 16px rgba(255,209,102,.35); }
+
+.minimap { position: absolute; left: 14px; top: 14px; pointer-events: auto; border-radius: 12px; overflow: hidden; border: 2px solid rgba(255,255,255,.35); box-shadow: 0 8px 24px rgba(0,0,0,.4); background: #000; }
+.minimap canvas { display: block; width: 210px; height: auto; cursor: pointer; image-rendering: auto; }
+.minimap [data-toggle] { position: absolute; right: 4px; top: 4px; width: 26px; height: 26px; border-radius: 8px; border: 0; background: rgba(0,0,0,.5); cursor: pointer; font-size: 14px; }
+.minimap.small canvas { width: 0; height: 0; }
+.minimap.small { border: 0; background: transparent; box-shadow: none; }
+.minimap.small [data-toggle] { position: static; width: 38px; height: 38px; font-size: 18px; background: rgba(20,22,40,.75); }
+body.in-room .minimap { display: none; }
+
+.photo-count { position: fixed; inset: 0; z-index: 90; display: grid; place-items: center; font-size: 160px; color: #fff; text-shadow: 0 0 40px rgba(0,0,0,.6); pointer-events: none; }
+.photo-count.pop { animation: pop .5s ease-out; }
+body.flash::after { content: ''; position: fixed; inset: 0; z-index: 95; background: #fff; animation: flashOut .35s ease-out forwards; pointer-events: none; }
+@keyframes flashOut { from { opacity: .95; } to { opacity: 0; } }
+.photo-card img { width: 100%; border-radius: 10px; box-shadow: 0 10px 30px rgba(0,0,0,.5); }
+.photo-actions { display: flex; gap: 10px; justify-content: flex-end; flex-wrap: wrap; }
+.photo-actions a { text-decoration: none; color: inherit; }
+
+@media (max-width: 700px) {
+  .minimap { left: 8px; top: 8px; }
+  .minimap canvas { width: 128px; }
+  .fish-panel { top: 56px; width: calc(100% - 24px); justify-content: center; }
+  .book-body { grid-template-columns: 1fr; }
+  .photo-count { font-size: 110px; }
+  #btn-photo { padding: 6px 9px; }
+}
+@media (max-width: 700px) {
+  #hud .hud-top { flex-wrap: wrap; justify-content: flex-end; max-width: calc(100% - 150px); }
+  #online-pill { font-size: 12px; padding: 5px 9px; }
+}
+.wheel-panel { top: 120px; max-width: min(460px, calc(100% - 24px)); align-items: flex-start; border-color: rgba(255,209,102,.5); box-shadow: 0 0 0 2px rgba(255,209,102,.35), 0 12px 40px rgba(0,0,0,.45); animation: pop .35s ease-out; }
+.wheel-panel .fish-icon { font-size: 56px; }
+.wheel-panel b { font-size: 22px; font-family: var(--font-pixel); color: #ffd166; }
+.wheel-panel small { color: var(--muted); }
+.wheel-panel p { margin: 4px 0 6px; font-size: 14px; line-height: 1.4; }
+.wheel-panel .tag { background: #e03131; color: #fff; }

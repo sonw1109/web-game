@@ -18,7 +18,7 @@ const TEMPLATE = `
     <div class="bc-panel" data-el="panel">
       <div class="bc-grid" data-el="grid"></div>
       <div class="bc-bar">
-        <div class="chips" data-el="chips"></div>
+        <div class="bc-chips" data-el="chips"></div>
         <button class="btn btn-ghost btn-sm" data-el="clear">↩ Xóa cược</button>
         <button class="btn btn-primary btn-sm" data-el="roll">🎲 Lắc!</button>
       </div>
@@ -56,7 +56,7 @@ export function createBauCuaRoom() {
     el('grid').append(b);
   }
   for (const c of CHIPS) {
-    const b = node('button', `chip chip-${c}`, String(c));
+    const b = node('button', `bc-chip bc-chip-${c}`, String(c));
     b.onclick = () => { chip = c; paintChips(); };
     el('chips').append(b);
   }

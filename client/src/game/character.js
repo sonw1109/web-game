@@ -10,6 +10,7 @@ export const PALETTE = {
   shirt: ['#4f8cff', '#ff5f6d', '#ff8a4c', '#3ddc97', '#ffd166', '#a06cff', '#f5f5f5', '#2b2d42', '#e05a9a'],
   pants: ['#2d3446', '#1f2a5a', '#4a3424', '#5b5f6a', '#2f5d3a', '#7a2e3a', '#d7c7a1'],
   hairStyles: ['Ngắn', 'Dài', 'Dựng', 'Búi'],
+  pets: ['Không', '🐱 Mèo', '🐶 Cún', '🐤 Gà con', '🐰 Thỏ'],
 };
 
 export const DEFAULT_APPEARANCE = { skin: '#f1c27d', hair: '#3b2a20', hairStyle: 0, shirt: '#4f8cff', pants: '#2d3446' };

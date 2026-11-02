@@ -101,8 +101,17 @@ export class Engine {
     this.renderer.render(v.scene, v.camera);
     if (v.cssScene) this.css.render(v.cssScene, v.camera);
     v.afterRender?.();
+    if (this._capture) { // chụp ngay sau khi vẽ (trước khi trình duyệt xóa bộ đệm)
+      const c = document.createElement('canvas');
+      c.width = this.canvas.width; c.height = this.canvas.height;
+      c.getContext('2d').drawImage(this.canvas, 0, 0);
+      this._capture(c); this._capture = null;
+    }
     this.adapt(dt * 1000, start);
   }
+
+  /** Chụp khung hình kế tiếp → Promise<canvas>. */
+  capture() { return new Promise((r) => { this._capture = r; }); }
 
   /** Chiếu điểm 3D ra tọa độ màn hình (px). visible = false nếu ở sau camera. */
   project(pos, camera = this.view?.camera) {

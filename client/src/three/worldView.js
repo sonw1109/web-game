@@ -8,9 +8,13 @@ import { Avatar } from './avatar.js';
 import { Controller } from './controller.js';
 import { OrbitRig } from './orbit.js';
 import { Fireworks } from './fireworks.js';
+import { Weather } from './weather.js';
+import { Pet } from './pet.js';
+import { FoodWheel } from './foodWheel.js';
+import { sound } from '../ui/sound.js';
 import { Labels } from '../ui/labels.js';
 import { mat, textures, tree, lamp, bench, house, fountain } from './props.js';
-import { MAP_W, MAP_H, BUILDINGS, SPAWN, FOUNTAIN, POND, GROUND, treePositions } from '../game/map.js';
+import { MAP_W, MAP_H, BUILDINGS, SPAWN, FOUNTAIN, POND, GROUND, LAKE, DOCK, GARDEN, GAZEBO, treePositions } from '../game/map.js';
 
 const PX = 16;                 // 1 mét = 16 px phía server
 const SEND_MS = 66;
@@ -47,6 +51,9 @@ function groundTexture() {
       c.strokeStyle = 'rgba(120,100,70,.3)'; c.lineWidth = 1.5; c.strokeRect(x + 1, y + 1, S - 2, S - 2);
     } else if (t === 3) {
       c.fillStyle = '#3a6f8f'; c.fillRect(x, y, S, S);
+    } else if (t === 4) { // cỏ vườn đào lấm tấm cánh hoa hồng
+      c.fillStyle = '#7cb35f'; c.fillRect(x, y, S, S);
+      for (let k = 0; k < 7; k++) { c.fillStyle = ['#ffc1d9', '#ff9ec4', '#fff0f6'][k % 3]; c.beginPath(); c.ellipse(x + r() * S, y + r() * S, S * 0.09, S * 0.05, r() * 3, 0, 7); c.fill(); }
     }
   }
   const tex = new THREE.CanvasTexture(cv);
@@ -82,6 +89,10 @@ export class WorldView {
 
     this.buildWorld();
     this.fx = new Fireworks(this.scene);
+    this.weather = new Weather(this.scene);
+    this.weatherType = 'clear';
+    this.fishers = new Map(); // id -> hình cần câu + phao
+    this.fishing = null;      // trạng thái câu của mình
     this.setupNight();
     this.ctrl = new Controller({ bounds: { x0: 1, z0: 1, x1: MAP_W - 1, z1: MAP_H - 1 }, rects: this.rects, circles: this.circles });
     this.ctrl.onKey = (code) => this.onKey(code);
@@ -150,6 +161,17 @@ export class WorldView {
     s.add(f);
     this.circles.push({ x: f.position.x, z: f.position.z, r: 1.45 });
 
+    // 🎡 Vòng quay "Hôm nay ăn gì?" cạnh đài phun nước (nghiêng về phía điểm xuất hiện)
+    const W0 = { x: 20.6, z: 14.4, ry: 0.45 };
+    this.wheel = new FoodWheel(s, W0);
+    this.wheelFront = { x: W0.x + Math.sin(W0.ry) * 1.5, z: W0.z + Math.cos(W0.ry) * 1.5 };
+    this.circles.push({ x: W0.x, z: W0.z, r: 0.75 });
+    this.wheel.onTick = () => { if (this.active && Math.hypot(this.ctrl.pos.x - W0.x, this.ctrl.pos.z - W0.z) < 18) sound.play('tick'); };
+    this.wheel.onDone = (i) => {
+      const f = this.wheel.foods?.[i];
+      if (f && this.active && Math.hypot(this.ctrl.pos.x - W0.x, this.ctrl.pos.z - W0.z) < 18) { store.emit('wheel-result', { ...f, by: this.wheelBy }); sound.play('win'); }
+    };
+
     // Đèn & ghế quanh quảng trường
     for (const [x, z] of [[18.5, 12.5], [29.5, 12.5], [18.5, 21.6], [29.5, 21.6]]) {
       const l = lamp(); l.position.set(x, 0, z); s.add(l);
@@ -160,15 +182,136 @@ export class WorldView {
       this.rects.push({ x: x - 0.65, z: z - 0.25, w: 1.3, d: 0.5 });
     }
 
+    this.buildLake();
+    this.buildGarden();
+    this.buildPark();
     // Cây (gộp instanced cho nhẹ)
     this.buildTrees(treePositions());
     cheapen(s);
   }
 
+  // 🎣 Hồ câu cá + bến gỗ (đi ra giữa hồ được)
+  buildLake() {
+    const s = this.scene, L = LAKE;
+    const water = new THREE.Mesh(new THREE.PlaneGeometry(L.w, L.h, 28, 18), new THREE.MeshStandardMaterial({ color: '#2f86c9', roughness: 0.12, metalness: 0.3, transparent: true, opacity: 0.92 }));
+    water.rotation.x = -Math.PI / 2; water.position.set(L.x + L.w / 2, 0.03, L.y + L.h / 2);
+    s.add(water);
+    this.lakeWater = water;
+    this.lakeBase = Float32Array.from(water.geometry.attributes.position.array);
+    const rim = mat('#8f8a84');
+    for (const [w, d, x, z] of [[L.w + 0.6, 0.3, L.x + L.w / 2, L.y - 0.15], [L.w + 0.6, 0.3, L.x + L.w / 2, L.y + L.h + 0.15], [0.3, L.h, L.x - 0.15, L.y + L.h / 2], [0.3, L.h, L.x + L.w + 0.15, L.y + L.h / 2]]) {
+      const m = new THREE.Mesh(new THREE.BoxGeometry(w, 0.22, d), rim);
+      m.position.set(x, 0.11, z); m.castShadow = m.receiveShadow = true; s.add(m);
+    }
+    // lá sen + hoa sen
+    const pads = new THREE.InstancedMesh(new THREE.CircleGeometry(0.4, 14, 0.3, Math.PI * 1.8), mat('#4f9a45'), 14);
+    const lotus = new THREE.InstancedMesh(new THREE.ConeGeometry(0.14, 0.2, 6), mat('#ff8fb8', { emissive: '#ff5c9e', emissiveIntensity: 0.2 }), 6);
+    const mtx = new THREE.Matrix4(), q = new THREE.Quaternion(), e = new THREE.Euler(), one = new THREE.Vector3(1, 1, 1);
+    let seed = 3; const r = () => ((seed = (seed * 1664525 + 1013904223) >>> 0) / 4294967296);
+    for (let i = 0; i < 14; i++) {
+      const x = L.x + 1 + r() * (L.w - 2), z = L.y + 1 + r() * (L.h - 2);
+      if (Math.abs(x - (DOCK.x + 1)) < 1.5) continue;
+      pads.setMatrixAt(i, mtx.compose(new THREE.Vector3(x, 0.05, z), q.setFromEuler(e.set(-Math.PI / 2, 0, r() * 6)), one));
+      if (i < 6) lotus.setMatrixAt(i, mtx.compose(new THREE.Vector3(x + 0.1, 0.15, z), q.identity(), one));
+    }
+    s.add(pads, lotus);
+    // bến gỗ
+    const wood = mat('#8a5a3c', { roughness: 0.8 });
+    const deckLen = DOCK.h + 0.5;
+    const deck = new THREE.Mesh(new THREE.BoxGeometry(DOCK.w, 0.12, deckLen), wood);
+    deck.position.set(DOCK.x + DOCK.w / 2, 0.18, DOCK.y + deckLen / 2 - 0.25); deck.castShadow = deck.receiveShadow = true;
+    s.add(deck);
+    for (let k = 0; k <= 3; k++) for (const sx of [-1, 1]) {
+      const post = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.07, 0.7, 8), mat('#5a3a24'));
+      post.position.set(DOCK.x + DOCK.w / 2 + sx * (DOCK.w / 2 - 0.1), 0.2, DOCK.y + k * (deckLen / 3)); s.add(post);
+    }
+    // va chạm: nước chặn, chừa đường đi trên bến
+    this.rects.push({ x: L.x, z: L.y, w: DOCK.x - L.x, d: L.h }, { x: DOCK.x + DOCK.w, z: L.y, w: L.x + L.w - DOCK.x - DOCK.w, d: L.h }, { x: DOCK.x, z: L.y, w: DOCK.w, d: DOCK.y - L.y });
+    this.lakeRect = L;
+  }
+
+  // 🌸 Vườn hoa đào
+  buildGarden() {
+    const s = this.scene, G = GARDEN;
+    const list = [];
+    let seed = 21; const r = () => ((seed = (seed * 1664525 + 1013904223) >>> 0) / 4294967296);
+    for (let i = 0; i < 60 && list.length < 22; i++) {
+      const x = G.x + 1 + r() * (G.w - 2), z = G.y + 1 + r() * (G.h - 2);
+      const tile = GROUND[Math.floor(z)]?.[Math.floor(x)];
+      if (tile !== 4 || list.some(([a, b]) => Math.hypot(a - x, b - z) < 1.8)) continue;
+      list.push([x, z]);
+    }
+    const trunk = new THREE.CylinderGeometry(0.1, 0.16, 1.1, 7); trunk.translate(0, 0.55, 0);
+    const trunks = new THREE.InstancedMesh(trunk, mat('#5b3a2e'), list.length);
+    const blossoms = new THREE.InstancedMesh(new THREE.IcosahedronGeometry(1, Q.level === 'low' ? 0 : 1), new THREE.MeshStandardMaterial({ flatShading: true, roughness: 0.85 }), list.length * 4);
+    const m = new THREE.Matrix4(), q = new THREE.Quaternion(), p = new THREE.Vector3(), sc = new THREE.Vector3(), col = new THREE.Color();
+    const pinks = ['#ffb7d0', '#ff9ec4', '#ffc8dd', '#f7a1c4', '#fff0f6'];
+    list.forEach(([x, z], i) => {
+      const k = 0.9 + r() * 0.4;
+      trunks.setMatrixAt(i, m.compose(p.set(x, 0, z), q.identity(), sc.set(k, k, k)));
+      for (let j = 0; j < 4; j++) {
+        const s2 = (0.55 - j * 0.07) * k;
+        blossoms.setMatrixAt(i * 4 + j, m.compose(p.set(x + (r() - 0.5) * 0.7, (1.25 + r() * 0.5) * k, z + (r() - 0.5) * 0.7), q.setFromEuler(new THREE.Euler(r(), r(), r())), sc.set(s2, s2 * 0.8, s2)));
+        blossoms.setColorAt(i * 4 + j, col.set(pinks[Math.floor(r() * pinks.length)]));
+      }
+      this.circles.push({ x, z, r: 0.3 });
+    });
+    for (const im of [trunks, blossoms]) { im.castShadow = true; im.receiveShadow = true; s.add(im); }
+    // đèn đá kiểu Nhật + ghế
+    const stone = mat('#9c968e', { roughness: 0.9 });
+    for (const [x, z] of [[51.5, 5.5], [56.5, 5.5], [51.5, 8.5], [56.5, 8.5]]) {
+      const g = new THREE.Group();
+      const parts = [[new THREE.CylinderGeometry(0.22, 0.28, 0.2, 6), 0.1], [new THREE.CylinderGeometry(0.08, 0.1, 0.55, 6), 0.47], [new THREE.BoxGeometry(0.4, 0.3, 0.4), 0.88], [new THREE.ConeGeometry(0.38, 0.28, 4), 1.17]];
+      for (const [geo, y] of parts) { const o = new THREE.Mesh(geo, stone); o.position.y = y; o.castShadow = true; g.add(o); }
+      const glow = new THREE.Mesh(new THREE.BoxGeometry(0.42, 0.16, 0.2), new THREE.MeshStandardMaterial({ color: '#ffe0a0', emissive: '#ffb347', emissiveIntensity: 1.2 }));
+      glow.position.y = 0.88; g.add(glow);
+      g.children[3].rotation.y = Math.PI / 4;
+      g.position.set(x, 0, z); s.add(g);
+      this.circles.push({ x, z, r: 0.3 });
+    }
+    for (const [x, z, ry] of [[53.9, 4.6, 0], [53.9, 9.5, Math.PI]]) { const b = bench(); b.position.set(x, 0, z); b.rotation.y = ry; s.add(b); this.rects.push({ x: x - 0.65, z: z - 0.25, w: 1.3, d: 0.5 }); }
+  }
+
+  // 🏯 Công viên: chòi nghỉ + luống hoa
+  buildPark() {
+    const s = this.scene, { x, y: z } = GAZEBO;
+    const g = new THREE.Group();
+    const red = mat('#b33a2e'), roofM = mat('#3e5a46', { roughness: 0.7 });
+    const base = new THREE.Mesh(new THREE.CylinderGeometry(2.2, 2.3, 0.25, 6), mat('#cbb79a'));
+    base.position.y = 0.12; base.receiveShadow = true; g.add(base);
+    const pillar = new THREE.CylinderGeometry(0.09, 0.09, 2.2, 8);
+    const pillars = new THREE.InstancedMesh(pillar, red, 6);
+    for (let i = 0; i < 6; i++) { const a = (i / 6) * Math.PI * 2; pillars.setMatrixAt(i, new THREE.Matrix4().makeTranslation(Math.cos(a) * 1.9, 1.35, Math.sin(a) * 1.9)); }
+    pillars.castShadow = true; g.add(pillars);
+    const roof = new THREE.Mesh(new THREE.ConeGeometry(2.8, 1.3, 6, 1, true), roofM);
+    roof.position.y = 3.05; roof.castShadow = true; g.add(roof);
+    const tip = new THREE.Mesh(new THREE.SphereGeometry(0.18, 10, 8), mat('#d8b04a', { metalness: 0.8, roughness: 0.3 }));
+    tip.position.y = 3.75; g.add(tip);
+    const lantern = new THREE.Mesh(new THREE.SphereGeometry(0.25, 14, 10), new THREE.MeshStandardMaterial({ color: '#e63946', emissive: '#ff3b1f', emissiveIntensity: 1.2 }));
+    lantern.scale.y = 1.3; lantern.position.y = 2.2; g.add(lantern);
+    g.position.set(x, 0, z); s.add(g);
+    for (let i = 0; i < 6; i++) { const a = (i / 6) * Math.PI * 2; this.circles.push({ x: x + Math.cos(a) * 1.9, z: z + Math.sin(a) * 1.9, r: 0.15 }); }
+    // luống hoa 2 bên công viên (instanced)
+    const flowers = new THREE.InstancedMesh(new THREE.SphereGeometry(0.13, 6, 5), new THREE.MeshStandardMaterial({ roughness: 0.8 }), 240);
+    const m = new THREE.Matrix4(), col = new THREE.Color();
+    const cs = ['#ff6b6b', '#ffd166', '#ff9ec4', '#c77dff', '#ffffff', '#ff8a4c'];
+    let n = 0, seed = 9; const r = () => ((seed = (seed * 1664525 + 1013904223) >>> 0) / 4294967296);
+    for (const [bx, bz, bw, bd] of [[12, 35.5, 6, 2], [12, 39, 6, 2], [31, 35.5, 6, 2], [31, 39, 6, 2]]) {
+      const bed = new THREE.Mesh(new THREE.BoxGeometry(bw, 0.16, bd), mat('#6b4a32'));
+      bed.position.set(bx + bw / 2, 0.08, bz + bd / 2); bed.receiveShadow = true; s.add(bed);
+      this.rects.push({ x: bx, z: bz, w: bw, d: bd });
+      for (let k = 0; k < 60; k++) {
+        flowers.setMatrixAt(n, m.makeTranslation(bx + 0.2 + r() * (bw - 0.4), 0.25, bz + 0.2 + r() * (bd - 0.4)));
+        flowers.setColorAt(n++, col.set(cs[Math.floor(r() * cs.length)]));
+      }
+    }
+    flowers.castShadow = true; s.add(flowers);
+  }
+
   buildTrees(list) {
     const trunkGeo = new THREE.CylinderGeometry(0.09, 0.14, 0.9, 7);
     trunkGeo.translate(0, 0.45, 0);
-    const leafGeo = new THREE.IcosahedronGeometry(1, 1);
+    const leafGeo = new THREE.IcosahedronGeometry(1, Q.level === 'low' ? 0 : 1); // máy yếu: tán lá 20 mặt thay vì 80
     const trunks = new THREE.InstancedMesh(trunkGeo, mat('#6b4226'), list.length);
     const leaves = new THREE.InstancedMesh(leafGeo, new THREE.MeshStandardMaterial({ flatShading: true, roughness: 0.9 }), list.length * 3);
     const m = new THREE.Matrix4(), q = new THREE.Quaternion(), sc = new THREE.Vector3(), p = new THREE.Vector3(), col = new THREE.Color();
@@ -233,8 +376,19 @@ export class WorldView {
     grad.addColorStop(0, `#${stops[0].getHexString()}`); grad.addColorStop(0.55, `#${stops[1].getHexString()}`); grad.addColorStop(1, `#${stops[2].getHexString()}`);
     c.fillStyle = grad; c.fillRect(0, 0, 4, 256);
     this.scene.background.needsUpdate = true;
+    // mưa/tuyết: trời xám, nắng yếu, sương gần hơn
+    const W = this.weatherType;
+    const grey = W === 'rain' ? 0.6 : W === 'snow' ? 0.35 : 0;
+    if (grey) for (const st of stops) st.lerp(new THREE.Color(W === 'rain' ? '#6f7b8a' : '#dfe6ee'), grey * (0.4 + 0.6 * day));
+    if (grey) { // vẽ lại bầu trời bằng dải màu mới (đã xám đi)
+      const g2 = c.createLinearGradient(0, 0, 0, 256);
+      g2.addColorStop(0, `#${stops[0].getHexString()}`); g2.addColorStop(0.55, `#${stops[1].getHexString()}`); g2.addColorStop(1, `#${stops[2].getHexString()}`);
+      c.fillStyle = g2; c.fillRect(0, 0, 4, 256);
+      this.scene.background.needsUpdate = true;
+    }
     this.scene.fog.color.copy(stops[2]);
-    this.sun.intensity = 0.25 + 2.2 * day;
+    this.scene.fog.near = W === 'rain' ? 14 : 26; this.scene.fog.far = W === 'rain' ? 42 : 60;
+    this.sun.intensity = (0.25 + 2.2 * day) * (W === 'rain' ? 0.45 : W === 'snow' ? 0.7 : 1);
     this.sun.color.copy(C('#ffb070', '#fff3e0', Math.max(0, day * 2 - 1)));
     this.hemi ||= this.scene.children.find((o) => o.isHemisphereLight);
     this.hemi.intensity = 0.45 + 0.7 * day;
@@ -246,6 +400,71 @@ export class WorldView {
     const hh = Math.floor(h), mm = String(Math.floor((h - hh) * 60)).padStart(2, '0');
     store.emit('time', { text: `${night > 0.5 ? '🌙' : day < 1 ? '🌇' : '☀️'} ${hh}:${mm}` });
     this.timeAt = performance.now();
+  }
+
+  spinWheel() { if (!this.wheel.spinning) socket.emit('wheel:spin'); }
+
+  setWeather(type) {
+    this.weatherType = type;
+    this.weather.set(type);
+    this.applyTime();
+  }
+
+  // ---------------- 🎣 Câu cá ----------------
+  /** Đang đứng ven hồ (hoặc trên bến) → câu được. */
+  canFish() {
+    const { x, z } = this.ctrl.pos, L = this.lakeRect;
+    const onDock = x > DOCK.x && x < DOCK.x + DOCK.w && z > L.y + 2 && z < L.y + L.h + 0.6;
+    const dx = Math.max(L.x - x, 0, x - (L.x + L.w)), dz = Math.max(L.y - z, 0, z - (L.y + L.h));
+    return onDock || (Math.hypot(dx, dz) < 1.3 && (dx > 0 || dz > 0));
+  }
+  castLine() {
+    const { x, z } = this.ctrl.pos, L = this.lakeRect;
+    const cx = L.x + L.w / 2, cz = L.y + L.h / 2;
+    let dx = cx - x, dz = cz - z;
+    const onDock = x > DOCK.x && x < DOCK.x + DOCK.w && z > L.y && z < L.y + L.h;
+    if (onDock) { dx = 0; dz = -1; } // trên bến: quăng thẳng ra giữa hồ
+    const len = Math.hypot(dx, dz) || 1;
+    const bx = THREE.MathUtils.clamp(x + (dx / len) * 2.6, L.x + 0.5, L.x + L.w - 0.5);
+    const bz = THREE.MathUtils.clamp(z + (dz / len) * 2.6, L.y + 0.5, L.y + L.h - 0.5);
+    const ang = Math.atan2(bx - x, bz - z);
+    this.me.faceTo(ang); this.ctrl.angle = ang;
+    this.fishing = { state: 'waiting', castAt: performance.now() };
+    socket.emit('fish:cast', { x: bx, z: bz });
+    store.emit('fish', { state: 'waiting' });
+  }
+  showFisher(id, on, bx, bz) {
+    const old = this.fishers.get(id);
+    if (old) { old.rod.removeFromParent(); old.line.removeFromParent(); old.bobber.removeFromParent(); old.ring.removeFromParent(); this.fishers.delete(id); }
+    if (!on) return;
+    const av = id === store.selfId ? this.me : this.remotes.get(id)?.av;
+    if (!av) return;
+    const rod = new THREE.Group();
+    const stick = new THREE.Mesh(new THREE.CylinderGeometry(0.012, 0.025, 1.5, 6), mat('#6b4226'));
+    stick.position.y = 0.75; rod.add(stick);
+    rod.position.set(0.12, 0.38, 0.25); rod.rotation.x = 0.95;
+    av.root.add(rod);
+    const line = new THREE.Line(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(), new THREE.Vector3()]), new THREE.LineBasicMaterial({ color: '#f5f5f5', transparent: true, opacity: 0.8 }));
+    line.frustumCulled = false;
+    const bobber = new THREE.Mesh(new THREE.SphereGeometry(0.07, 10, 8), mat('#ff3b30', { emissive: '#ff3b30', emissiveIntensity: 0.4 }));
+    const ring = new THREE.Mesh(new THREE.RingGeometry(0.1, 0.16, 20), new THREE.MeshBasicMaterial({ color: '#ffffff', transparent: true, opacity: 0, depthWrite: false }));
+    ring.rotation.x = -Math.PI / 2;
+    bobber.position.set(bx, 0.08, bz); ring.position.set(bx, 0.05, bz);
+    this.scene.add(line, bobber, ring);
+    this.fishers.set(id, { rod, stick, line, bobber, ring, bite: false, bx, bz, ringT: 0 });
+  }
+  updateFishers(t, dt) {
+    const tip = new THREE.Vector3();
+    for (const f of this.fishers.values()) {
+      f.stick.localToWorld(tip.set(0, 0.75, 0));
+      const dip = f.bite ? -0.09 + Math.sin(t * 30) * 0.04 : Math.sin(t * 2.5 + f.bx) * 0.02;
+      f.bobber.position.y = 0.08 + dip;
+      const a = f.line.geometry.attributes.position.array;
+      a[0] = tip.x; a[1] = tip.y; a[2] = tip.z; a[3] = f.bx; a[4] = f.bobber.position.y; a[5] = f.bz;
+      f.line.geometry.attributes.position.needsUpdate = true;
+      if (f.bite) { f.ringT = (f.ringT + dt * 1.6) % 1; f.ring.scale.setScalar(1 + f.ringT * 5); f.ring.material.opacity = 0.8 * (1 - f.ringT); }
+      else f.ring.material.opacity = 0;
+    }
   }
 
   // ---------------- Hành động & pháo hoa ----------------
@@ -274,6 +493,8 @@ export class WorldView {
     if (this.ctrl.blocked(this.ctrl.pos.x, this.ctrl.pos.z)) this.ctrl.pos = { x: SPAWN.x / PX, z: SPAWN.y / PX };
     this.me.setPosition(this.ctrl.pos.x, this.ctrl.pos.z);
     this.labels.add('me', character.name, true);
+    this.myPet?.dispose();
+    this.myPet = character.appearance.pet ? new Pet(['', 'cat', 'dog', 'chick', 'bunny'][character.appearance.pet], this.scene) : null;
   }
 
   addRemote(p) {
@@ -283,7 +504,8 @@ export class WorldView {
     av.root.rotation.y = p.rot || 0;
     av.root.visible = p.room === 'lobby';
     this.scene.add(av.root);
-    this.remotes.set(p.id, { av, tx: p.x / PX, tz: p.y / PX, rot: p.rot || 0, moving: false });
+    const pet = p.appearance?.pet ? new Pet(['', 'cat', 'dog', 'chick', 'bunny'][p.appearance.pet], this.scene) : null;
+    this.remotes.set(p.id, { av, pet, tx: p.x / PX, tz: p.y / PX, rot: p.rot || 0, moving: false });
     this.labels.add(p.id, p.name, false);
     this.labels.setVisible(p.id, p.room === 'lobby' && this.active);
   }
@@ -292,6 +514,8 @@ export class WorldView {
     const r = this.remotes.get(id);
     if (!r) return;
     r.av.dispose();
+    r.pet?.dispose();
+    this.showFisher(id, false);
     this.remotes.delete(id);
     this.labels.remove(id);
   }
@@ -299,7 +523,12 @@ export class WorldView {
   // ---------------- Input ----------------
   onKey(code) {
     if (store.room !== 'lobby') return;
-    if (code === 'KeyE' && this.nearDoor) store.emit('enter-room', this.nearDoor.id);
+    if (code === 'KeyE') {
+      if (this.nearDoor && !this.fishing) store.emit('enter-room', this.nearDoor.id);
+      else if (this.fishing) socket.emit('fish:reel');
+      else if (this.nearWheel) this.spinWheel();
+      else if (this.canFish()) this.castLine();
+    }
     const digit = /^(?:Digit|Numpad)([1-6])$/.exec(code);
     if (digit) socket.emit('emoji:send', +digit[1] - 1);
     const em = { Digit7: 'dance', Digit8: 'bow', Digit9: 'wave', Digit0: 'spin' }[code];
@@ -333,6 +562,8 @@ export class WorldView {
           if (p.id !== selfId) this.addRemote(p);
         }
         if (store.room !== 'lobby') socket.emit('world:setRoom', store.room);
+        socket.emit('weather:sync');
+        socket.emit('wheel:sync');
         store.emit('players-changed');
       });
     };
@@ -347,6 +578,20 @@ export class WorldView {
         if (r) { r.av.root.visible = room === 'lobby'; this.labels.setVisible(id, room === 'lobby' && this.active); }
         store.emit('players-changed');
       },
+      weather: ({ type }) => this.setWeather(type),
+      'wheel:state': ({ foods, spin }) => { this.wheel.setFoods(foods); if (spin) { this.wheelBy = spin.by; this.wheel.spinTo(spin.index, spin.elapsed, spin.duration); } },
+      'wheel:spin': ({ index, by, elapsed, duration }) => { this.wheelBy = by; this.wheel.spinTo(index, elapsed, duration); store.emit('wheel-spin', { by }); },
+      'fish:state': ({ id, fishing, x, z }) => {
+        this.showFisher(id, fishing, x, z);
+        if (id === store.selfId && !fishing) { this.fishing = null; store.emit('fish', { state: 'idle' }); }
+      },
+      'fish:bite': ({ id }) => {
+        const f = this.fishers.get(id);
+        if (f) f.bite = true;
+        if (id === store.selfId && this.fishing) { this.fishing.state = 'bite'; store.emit('fish', { state: 'bite' }); }
+      },
+      'fish:result': (res) => store.emit('fish', { state: 'result', ...res }),
+      'fish:caught': ({ id, icon }) => this.labels.emoji(this.labelId(id), icon),
       'world:snapshot': (snap) => {
         for (const [id, x, y, dir, moving, rot] of snap) {
           const p = store.players.get(id);
@@ -427,7 +672,23 @@ export class WorldView {
     this.sun.target.position.set(c.pos.x, 0, c.pos.z);
 
     this.fountain.userData.animate(t);
+    if (Math.hypot(c.pos.x - (LAKE.x + LAKE.w / 2), c.pos.z - (LAKE.y + LAKE.h / 2)) < 22) {
+      const pos = this.lakeWater.geometry.attributes.position, b = this.lakeBase;
+      for (let i = 0; i < pos.count; i++) pos.array[i * 3 + 2] = Math.sin(b[i * 3] * 1.3 + t * 1.6) * 0.03 + Math.cos(b[i * 3 + 1] * 1.1 + t * 1.2) * 0.03;
+      pos.needsUpdate = true;
+    }
     this.fx.update(dt);
+    this.weather.update(dt, t, c.pos);
+    this.myPet?.update(dt, t, this.me.root);
+    for (const r of this.remotes.values()) if (r.pet) { r.pet.root.visible = r.av.root.visible; r.pet.update(dt, t, r.av.root); }
+    if (this.fishers.size) this.updateFishers(t, dt);
+    // đang câu mà đi chỗ khác → thu cần
+    if (this.fishing && c.moving && performance.now() - this.fishing.castAt > 300) { socket.emit('fish:stop'); this.fishing = null; store.emit('fish', { state: 'idle' }); }
+    this.wheel.update(dt, t);
+    const nearWheel = store.room === 'lobby' && !this.nearDoor && !this.fishing && Math.hypot(c.pos.x - this.wheelFront.x, c.pos.z - this.wheelFront.z) < 1.6;
+    if (nearWheel !== this.nearWheel) { this.nearWheel = nearWheel; store.emit('near-wheel', nearWheel); }
+    const fishable = store.room === 'lobby' && !this.nearDoor && !this.fishing && this.canFish();
+    if (fishable !== this.fishable) { this.fishable = fishable; store.emit('near-fish', fishable); }
     if (performance.now() - this.timeAt > 20000) this.applyTime(); // cập nhật trời mỗi 20 giây
   }
 

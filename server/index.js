@@ -12,6 +12,8 @@ import { registerBots } from './bots/index.js';
 import { registerGallery } from './rooms/gallery.js';
 import { registerBauCua } from './rooms/baucua.js';
 import { registerTyping } from './rooms/typing.js';
+import { registerFeatures } from './features.js';
+import { registerWheel } from './wheel.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PORT = process.env.PORT || 3000;
@@ -61,6 +63,9 @@ const typing = registerTyping(io, world);
 const baucua = registerBauCua(io, world);
 registerBots(world, { caro, draw, quiz, typing, baucua });
 registerGallery(app, io, world, PASSWORD);
+// hồ câu: phải khớp LAKE trong client/src/game/map.js
+registerFeatures(io, world, { lake: { x: 44, y: 20, w: 14, h: 9 } });
+registerWheel(io, world);
 
 // Lỗi từ middleware (vd. file quá lớn) → trả JSON để client hiện thông báo dễ hiểu
 app.use((err, _req, res, next) => {

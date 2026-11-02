@@ -19,6 +19,10 @@ Mở 2 tab (hoặc 1 tab ẩn danh) để thấy nhau.
 | 1–6 | Thả emoji |
 | 7 8 9 0 | Hành động: nhảy, cúi chào, vẫy tay, xoay vòng |
 | F (hoặc nút 🎆) | Bắn pháo hoa cho cả sảnh xem |
+| P (hoặc nút 📸) | Chụp ảnh – tải về hoặc treo lên Phòng Tranh |
+| E ở ven hồ / trên bến | Câu cá 🎣 (cá cắn câu thì nhấn E thật nhanh) |
+| E trước vòng quay (cạnh đài phun nước) | 🎡 Quay "Hôm nay ăn gì?" – 20 món Việt ba miền |
+| Chat `/mua` `/nang` `/tuyet` `/hoadao` | Đổi thời tiết cả sảnh (`/help` để xem) |
 | Chạm / click bản đồ | Đi tới chỗ đó (điện thoại) |
 | Kéo chuột (trái/phải) · vuốt 1 ngón | Xoay camera, nhìn ra sau lưng (sảnh, phòng tranh) — WASD đi theo hướng camera |
 | Lăn chuột / phím + − · chụm 2 ngón | Phóng to / thu nhỏ camera |
@@ -37,6 +41,10 @@ Mở 2 tab (hoặc 1 tab ẩn danh) để thấy nhau.
 - ⌨️ **Đua Gõ Phím** – gõ câu ca dao (có dấu hay không dấu đều được), nhân vật chạy trên đường đua theo tốc độ gõ.
 - 🎲 **Sòng Bầu Cua** – đặt cược bằng điểm (1000 điểm khởi đầu), bát úp lắc, xúc xắc 3D. Chơi cho vui, không dùng tiền thật.
 - 🌗 Sảnh đổi ngày/đêm theo giờ Việt Nam.
+- 🗺️ Bản đồ rộng hơn: 🎣 Hồ câu cá (có bến gỗ, sổ tay sưu tập 14 loại + bảng xếp hạng), 🌸 Vườn hoa đào, 🏯 Công viên chòi nghỉ. Bản đồ nhỏ góc trên-trái: bấm khu vực để dịch chuyển.
+- 🎡 Vòng quay **Hôm nay ăn gì?** cạnh đài phun nước: 20 món tiêu biểu ba miền (`server/data/foods-vi.json`, sửa/thêm món thoải mái), cả sảnh cùng xem quay, kết quả báo lên chat.
+- 🌦️ Thời tiết chung cho cả server (nắng / mưa / hoa đào / tuyết, tự đổi mỗi 5–8 phút).
+- 🐾 Thú cưng đi theo (chọn khi tạo nhân vật): mèo, cún, gà con, thỏ.
 - 🎙️ Trong mọi phòng: bật mic/cam ở thanh trên cùng (mặc định tắt), bấm vào ô cam để phóng to.
 
 Muốn thêm từ cho Vẽ & Đoán: sửa `server/data/words-vi.json`.

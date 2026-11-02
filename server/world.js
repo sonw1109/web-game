@@ -19,6 +19,7 @@ export function rateLimiter(n, ms) {
   };
 }
 const chatLimit = rateLimiter(6, 4000);   // tối đa 6 tin / 4 giây
+const guessLimit = rateLimiter(15, 5000); // phòng Vẽ: đoán dồn dập là bình thường → nới hơn
 const emojiLimit = rateLimiter(5, 2000);  // tối đa 5 emoji / 2 giây
 const emoteLimit = rateLimiter(4, 3000);  // hành động (nhảy, cúi chào…)
 const fxLimit = rateLimiter(1, 8000);     // pháo hoa: 1 lần / 8 giây mỗi người
@@ -34,6 +35,7 @@ export function sanitizeAppearance(a) {
     skin: color(a.skin, '#f1c27d'),
     hair: color(a.hair, '#3b2a20'),
     hairStyle: Math.max(0, Math.min(3, Math.floor(num(a.hairStyle)))),
+    pet: Math.max(0, Math.min(4, Math.floor(num(a.pet)))), // 0 = không có, 1 mèo, 2 cún, 3 gà con, 4 thỏ
     shirt: color(a.shirt, '#4f8cff'),
     pants: color(a.pants, '#2d3446'),
   };
@@ -102,7 +104,8 @@ export function registerWorld(io) {
     });
 
     socket.on('chat:send', (text) => {
-      if (!chatLimit(socket.id)) return socket.emit('chat:message', { system: true, text: '🐢 Bạn gửi nhanh quá, chậm lại chút nhé', ts: Date.now() });
+      const inDraw = players.get(socket.id)?.room === 'draw';
+      if (!(inDraw ? guessLimit : chatLimit)(socket.id)) return socket.emit('chat:message', { system: true, text: '🐢 Bạn gửi nhanh quá, chậm lại chút nhé', ts: Date.now() });
       say(players.get(socket.id), text);
     });
 

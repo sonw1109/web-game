@@ -19,6 +19,10 @@ const TEMPLATE = `
       <canvas data-el="canvas" width="1000" height="750"></canvas>
       <div class="draw-overlay" data-el="overlay" hidden></div>
     </div>
+    <form class="guess-bar" data-el="guess" hidden>
+      <input data-el="guessInput" maxlength="60" placeholder="Nhập đáp án… (không cần dấu)" autocomplete="off" enterkeyhint="send" />
+      <button class="btn btn-primary btn-sm" type="submit">Đoán</button>
+    </form>
     <div class="draw-tools" data-el="tools">
       <div class="colors" data-el="colors"></div>
       <div class="sizes" data-el="sizes"></div>
@@ -147,6 +151,24 @@ export function createDrawRoom() {
     if ((e.ctrlKey || e.metaKey) && e.key === 'z' && amDrawer()) { e.preventDefault(); socket.emit('draw:undo'); }
   };
 
+  // Ô nhập đáp án riêng cho người đoán (không phụ thuộc ô chat – trên điện thoại ô chat có thể đang thu gọn/ẩn)
+  const guessInput = el('guessInput');
+  guessInput.addEventListener('keydown', (e) => e.stopPropagation());
+  el('guess').addEventListener('submit', (e) => {
+    e.preventDefault();
+    const t = guessInput.value.trim();
+    if (!t) return;
+    socket.emit('chat:send', t);
+    guessInput.value = '';
+  });
+  function renderGuess() {
+    const s = state, me = s?.players.find((p) => p.id === store.selfId);
+    const canGuess = s?.phase === 'drawing' && s.drawerId !== store.selfId;
+    el('guess').hidden = !canGuess;
+    guessInput.disabled = !!me?.guessed;
+    guessInput.placeholder = me?.guessed ? '✅ Bạn đoán đúng rồi! Chờ người khác…' : 'Nhập đáp án… (không cần dấu)';
+  }
+
   // ---------- Kích thước canvas giữ tỉ lệ 4:3 ----------
   const fit = () => {
     const wrap = el('wrap');
@@ -220,6 +242,7 @@ export function createDrawRoom() {
       ol.append(li);
     }
     el('restart').hidden = s.phase === 'idle' || s.phase === 'gameOver';
+    renderGuess();
     renderOverlay();
     renderTools();
     view3d?.setDrawer(['choosing', 'drawing'].includes(s.phase) ? s.drawerId : null);

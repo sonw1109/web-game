@@ -12,7 +12,20 @@ export const MAX_BYTES = 4 * 1024 * 1024;
 
 /** Nhận diện ảnh qua "magic bytes" (không tin content-type của client). */
 export function detectImage(buf) {
-  if (buf.length < 12) return null;
+  if (buf.length < 128) return null; // quá nhỏ để là ảnh thật
+  const tail = buf.subarray(Math.max(0, buf.length - 64));
+  const ends = (bytes) => tail.indexOf(Buffer.from(bytes)) >= 0;
+  const t = detectHead(buf);
+  if (!t) return null;
+  // kiểm tra phần kết thúc chuẩn của từng định dạng (chặn file giả mạo chỉ có phần đầu)
+  if (t.ext === 'jpg' && !ends([0xff, 0xd9])) return null;
+  if (t.ext === 'png' && !ends([0x49, 0x45, 0x4e, 0x44])) return null; // "IEND"
+  if (t.ext === 'gif' && buf[buf.length - 1] !== 0x3b) return null;
+  if (t.ext === 'webp' && buf.readUInt32LE(4) + 8 > buf.length + 1) return null;
+  return t;
+}
+
+function detectHead(buf) {
   if (buf[0] === 0xff && buf[1] === 0xd8 && buf[2] === 0xff) return { ext: 'jpg', type: 'image/jpeg' };
   if (buf.subarray(0, 8).equals(Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]))) return { ext: 'png', type: 'image/png' };
   if (buf.subarray(0, 4).toString('latin1') === 'RIFF' && buf.subarray(8, 12).toString('latin1') === 'WEBP') return { ext: 'webp', type: 'image/webp' };
@@ -50,7 +63,7 @@ export function registerGallery(app, io, world, password) {
     if (req.get('x-password') !== password) return res.status(401).json({ error: 'Sai mật khẩu' });
     const sid = req.get('x-socket-id');
     const p = world.get(sid);
-    if (!p || p.room !== 'gallery') return res.status(403).json({ error: 'Bạn cần ở trong Phòng Tranh' });
+    if (!p) return res.status(403).json({ error: 'Bạn cần đang online trong Hội Quán' });
     if (state.photos.length >= MAX_PHOTOS) return res.status(400).json({ error: `Phòng đầy (${MAX_PHOTOS} ảnh). Xóa bớt ảnh cũ nhé` });
     const img = Buffer.isBuffer(req.body) ? detectImage(req.body) : null;
     if (!img) return res.status(400).json({ error: 'File không phải ảnh (JPG/PNG/WEBP/GIF)' });

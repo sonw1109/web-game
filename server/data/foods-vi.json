@@ -1,0 +1,22 @@
+[
+  { "id": "pho", "name": "Phở Hà Nội", "icon": "🍜", "region": "Miền Bắc", "desc": "Bánh phở mềm, nước dùng ninh xương thơm quế hồi, thêm hành lá và chanh ớt." },
+  { "id": "buncha", "name": "Bún chả", "icon": "🥢", "region": "Miền Bắc", "desc": "Chả nướng than hoa thơm lừng, chấm nước mắm chua ngọt cùng bún và rau sống." },
+  { "id": "bundau", "name": "Bún đậu mắm tôm", "icon": "🧆", "region": "Miền Bắc", "desc": "Đậu rán giòn, chả cốm, thịt luộc, chấm mắm tôm đánh bông – ăn là ghiền." },
+  { "id": "chaca", "name": "Chả cá Lã Vọng", "icon": "🐟", "region": "Miền Bắc", "desc": "Cá lăng nghệ vàng óng xèo xèo trên chảo, ăn cùng thì là, bún và mắm tôm." },
+  { "id": "banhdacua", "name": "Bánh đa cua", "icon": "🦀", "region": "Hải Phòng", "desc": "Sợi bánh đa đỏ dai, nước riêu cua ngọt thanh, thêm chả lá lốt và rau muống." },
+  { "id": "bunoc", "name": "Bún ốc", "icon": "🐚", "region": "Miền Bắc", "desc": "Ốc giòn, nước dùng chua dịu từ dấm bỗng, thêm cà chua và đậu rán." },
+  { "id": "banhcuon", "name": "Bánh cuốn", "icon": "🥟", "region": "Miền Bắc", "desc": "Lá bánh mỏng tráng tay, nhân thịt mộc nhĩ, rắc hành phi, chấm nước mắm." },
+  { "id": "bunbohue", "name": "Bún bò Huế", "icon": "🌶️", "region": "Miền Trung", "desc": "Sợi bún to, nước dùng sả ớt cay nồng, có giò heo, chả cua và tiết." },
+  { "id": "miquang", "name": "Mì Quảng", "icon": "🍝", "region": "Quảng Nam", "desc": "Sợi mì vàng, ít nước đậm đà, tôm thịt trứng cút, bánh tráng mè giòn rụm." },
+  { "id": "caolau", "name": "Cao lầu", "icon": "🍲", "region": "Hội An", "desc": "Sợi mì dai đặc biệt, thịt xá xíu, tóp mỡ giòn và rau Trà Quế thơm." },
+  { "id": "comga", "name": "Cơm gà Hội An", "icon": "🍗", "region": "Hội An", "desc": "Cơm nấu nước luộc gà vàng ươm, gà xé trộn hành tây rau răm." },
+  { "id": "banhxeo", "name": "Bánh xèo", "icon": "🥞", "region": "Miền Nam", "desc": "Vỏ bánh vàng giòn nhân tôm thịt giá, cuốn rau sống chấm nước mắm." },
+  { "id": "hutieu", "name": "Hủ tiếu Nam Vang", "icon": "🍜", "region": "Miền Nam", "desc": "Nước lèo ngọt từ xương, tôm, thịt bằm, gan, ăn khô hay nước đều ngon." },
+  { "id": "laumam", "name": "Lẩu mắm", "icon": "🫕", "region": "Miền Tây", "desc": "Nồi lẩu mắm cá linh đậm đà, ăn cùng rổ rau đồng nội đủ loại." },
+  { "id": "comtam", "name": "Cơm tấm", "icon": "🍚", "region": "Sài Gòn", "desc": "Sườn nướng mật ong, bì, chả trứng, mỡ hành và nước mắm kẹo." },
+  { "id": "goicuon", "name": "Gỏi cuốn", "icon": "🌯", "region": "Miền Nam", "desc": "Bánh tráng cuốn tôm thịt bún rau, chấm tương đen đậu phộng." },
+  { "id": "banhmi", "name": "Bánh mì Sài Gòn", "icon": "🥖", "region": "Sài Gòn", "desc": "Vỏ giòn ruột mềm, pa tê, chả lụa, đồ chua, ngò và ớt – ăn sáng số một." },
+  { "id": "banhkhot", "name": "Bánh khọt", "icon": "🍤", "region": "Vũng Tàu", "desc": "Bánh nhỏ giòn rụm nhân tôm, rắc tôm cháy, cuốn rau cải chấm nước mắm." },
+  { "id": "bunrieu", "name": "Bún riêu cua", "icon": "🍅", "region": "Cả nước", "desc": "Riêu cua đồng béo ngậy, cà chua, đậu rán, thêm mắm tôm cho đậm vị." },
+  { "id": "heorung", "name": "Heo rừng nướng mắc khén", "icon": "🔥", "region": "Tây Nguyên", "desc": "Thịt heo rừng tẩm hạt mắc khén nướng than, thơm cay đặc trưng núi rừng." }
+]

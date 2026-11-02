@@ -1,7 +1,7 @@
 // Bản đồ khu phố "Hội Quán" – sinh bằng code (không cần tileset ngoài).
 export const TILE = 16;
-export const MAP_W = 48;
-export const MAP_H = 36;
+export const MAP_W = 64;
+export const MAP_H = 46;
 
 // Hạt giống random cố định → mọi người thấy cùng bản đồ
 function rng(seed) {
@@ -22,23 +22,36 @@ export const BUILDINGS = [
 export const SPAWN = { x: 24 * TILE, y: 20 * TILE };
 export const FOUNTAIN = { x: 24 * TILE, y: 17 * TILE, r: 22 };
 export const POND = { x: 2, y: 11, w: 5, h: 4 };
+// Khu mới khi mở rộng bản đồ
+export const LAKE = { x: 44, y: 20, w: 14, h: 9 };     // 🎣 hồ câu cá
+export const DOCK = { x: 50, y: 25, w: 2, h: 5 };      // bến gỗ đi ra giữa hồ
+export const GARDEN = { x: 46, y: 3, w: 16, h: 11 };   // 🌸 vườn hoa đào
+export const PARK = { x: 19, y: 35, w: 11, h: 7 };     // 🏯 công viên + chòi nghỉ
+export const GAZEBO = { x: 24.5, y: 38.5 };
 
 // ---- Lưới mặt đất ----
-// 0 cỏ, 1 đường đá, 2 quảng trường, 3 nước
+// 0 cỏ, 1 đường đá, 2 quảng trường, 3 nước, 4 cỏ vườn đào (có cánh hoa)
 function buildGround() {
   const g = Array.from({ length: MAP_H }, () => new Array(MAP_W).fill(0));
   const fill = (x, y, w, h, v) => {
     for (let j = y; j < y + h; j++) for (let i = x; i < x + w; i++) if (g[j]?.[i] !== undefined) g[j][i] = v;
   };
-  fill(3, 16, 42, 2, 1);          // đường ngang chính
-  fill(23, 9, 2, 24, 1);          // đường dọc chính (bắt đầu từ cửa Phòng Tranh)
-  fill(6, 30, 36, 2, 1);          // đường ngang dưới
+  fill(GARDEN.x, GARDEN.y, GARDEN.w, GARDEN.h, 4); // vườn đào
+  fill(3, 16, 58, 2, 1);          // đường ngang chính (kéo dài sang khu mới)
+  fill(23, 9, 2, 33, 1);          // đường dọc chính: cửa Phòng Tranh → công viên
+  fill(6, 30, 55, 2, 1);          // đường ngang dưới
+  fill(59, 16, 2, 16, 1);         // đường dọc phía đông (ra hồ câu)
+  fill(53, 8, 2, 8, 1);           // lối vào vườn đào
+  fill(51, 5, 6, 4, 2);           // sân đá giữa vườn
   fill(18, 12, 12, 10, 2);        // quảng trường
+  fill(PARK.x, PARK.y, PARK.w, PARK.h, 2); // sân công viên
   for (const b of BUILDINGS) {
-    if (b.y < MAP_H / 2) fill(b.doorX - 1, b.doorY, 2, 16 - b.doorY, 1);
-    else fill(b.doorX - 1, b.doorY, 2, 30 - b.doorY, 1);
+    if (b.y < 15) fill(b.doorX - 1, b.doorY, 2, 16 - b.doorY, 1); // nhà phía trên → nối đường chính
+    else fill(b.doorX - 1, b.doorY, 2, 30 - b.doorY, 1);          // nhà phía dưới → nối đường dưới
   }
   fill(POND.x, POND.y, POND.w, POND.h, 3);
+  fill(LAKE.x, LAKE.y, LAKE.w, LAKE.h, 3);
+  fill(DOCK.x, LAKE.y + LAKE.h, DOCK.w, 30 - LAKE.y - LAKE.h, 1); // lối từ đường dưới ra bến
   return g;
 }
 export const GROUND = buildGround();
@@ -46,6 +59,7 @@ export const GROUND = buildGround();
 export function isFree(tx, ty) {
   if (tx < 2 || ty < 2 || tx >= MAP_W - 2 || ty >= MAP_H - 2) return false;
   if (GROUND[ty][tx] !== 0) return false;
+  if (Math.hypot(tx + 0.5 - GAZEBO.x, ty + 0.5 - GAZEBO.y) < 3) return false;
   for (const b of BUILDINGS) {
     if (tx >= b.x - 1 && tx <= b.x + b.w && ty >= b.y - 2 && ty <= b.doorY + 1) return false;
   }
@@ -183,7 +197,7 @@ export function treePositions() {
   const out = [];
   for (let tx = 0; tx < MAP_W; tx += 1.5) { out.push([tx, 0.6]); out.push([tx + 0.7, MAP_H - 0.6]); }
   for (let ty = 1.5; ty < MAP_H - 1; ty += 1.5) { out.push([0.6, ty]); out.push([MAP_W - 0.6, ty + 0.7]); }
-  for (let i = 0; i < 60; i++) {
+  for (let i = 0; i < 120; i++) {
     const tx = 2 + Math.floor(r() * (MAP_W - 4)), ty = 2 + Math.floor(r() * (MAP_H - 4));
     if (isFree(tx, ty) && isFree(tx, ty - 1) && isFree(tx + 1, ty)) out.push([tx + 0.5, ty + 0.9]);
   }
