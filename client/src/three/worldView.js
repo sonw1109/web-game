@@ -11,6 +11,7 @@ import { Fireworks } from './fireworks.js';
 import { Weather } from './weather.js';
 import { Pet } from './pet.js';
 import { FoodWheel } from './foodWheel.js';
+import { Sky } from './sky.js';
 import { sound } from '../ui/sound.js';
 import { Labels } from '../ui/labels.js';
 import { mat, textures, tree, lamp, bench, house, fountain } from './props.js';
@@ -80,7 +81,7 @@ export class WorldView {
     this.character = character;
     this.scene = new THREE.Scene();
     this.camera = new THREE.PerspectiveCamera(42, 1, 0.1, 200);
-    this.rig = new OrbitRig({ dist: 8.5, minDist: 3.5, maxDist: 22, pitch: 0.62, minPitch: 0.15, maxPitch: 1.3, height: 1.0 });
+    this.rig = new OrbitRig({ dist: 8.5, minDist: 3.5, maxDist: 22, pitch: 0.62, minPitch: -0.6, maxPitch: 1.3, height: 1.0 }); // minPitch âm = ngước nhìn trời
     this.labels = new Labels(document.getElementById('world-labels'));
     this.remotes = new Map();
     this.nearDoor = null;
@@ -150,6 +151,7 @@ export class WorldView {
       h.position.set(cx, 0, cz);
       s.add(h);
       this.rects.push({ x: cx - (b.w - 0.6) / 2 - 0.15, z: cz - d / 2 - 0.15, w: b.w - 0.3, d: d + 0.3 });
+      (this.houses ||= []).push({ x0: cx - b.w / 2 - 0.5, x1: cx + b.w / 2 + 0.5, z0: cz - d / 2 - 0.6, z1: cz + d / 2 + 0.4, top: 3.9 }); // vùng camera không được chui vào
       b.door3d = { x: cx, z: b.y + b.h + 0.25 };
       (this.doors ||= {})[b.id] = b.door3d;
       this.signs.push({ el: this.labels.addSign(`${b.icon} ${b.name}`), pos: new THREE.Vector3(cx, 4.1, cz + d / 2) });
@@ -169,6 +171,7 @@ export class WorldView {
     this.wheel.onTick = () => { if (this.active && Math.hypot(this.ctrl.pos.x - W0.x, this.ctrl.pos.z - W0.z) < 18) sound.play('tick'); };
     this.wheel.onDone = (i) => {
       const f = this.wheel.foods?.[i];
+      store.emit('wheel-busy', false);
       if (f && this.active && Math.hypot(this.ctrl.pos.x - W0.x, this.ctrl.pos.z - W0.z) < 18) { store.emit('wheel-result', { ...f, by: this.wheelBy }); sound.play('win'); }
     };
 
@@ -342,18 +345,9 @@ export class WorldView {
       const m = o.material;
       if (m && !Array.isArray(m) && m.emissive && m.emissiveIntensity > 0 && !mats.has(m) && (m.emissive.r + m.emissive.g + m.emissive.b) > 0) { mats.add(m); this.glows.push({ m, base: m.emissiveIntensity }); }
     });
-    const g = new THREE.BufferGeometry(), pts = [];
-    for (let i = 0; i < 500; i++) {
-      const a = Math.random() * Math.PI * 2, e = 0.15 + Math.random() * 1.3, r = 90;
-      pts.push(MAP_W / 2 + Math.cos(a) * Math.cos(e) * r, Math.sin(e) * r, MAP_H / 2 + Math.sin(a) * Math.cos(e) * r);
-    }
-    g.setAttribute('position', new THREE.Float32BufferAttribute(pts, 3));
-    this.starPts = new THREE.Points(g, new THREE.PointsMaterial({ color: '#ffffff', size: 0.5, transparent: true, opacity: 0, fog: false, depthWrite: false }));
-    this.starPts.frustumCulled = false;
-    this.scene.add(this.starPts);
-    this.skyCanvas = document.createElement('canvas'); this.skyCanvas.width = 4; this.skyCanvas.height = 256;
-    this.scene.background = new THREE.CanvasTexture(this.skyCanvas);
-    this.scene.background.colorSpace = THREE.SRGBColorSpace;
+    // vòm trời 3D (ngước camera lên là thấy thiên đỉnh, mặt trời/trăng, mây, sao)
+    this.sky = new Sky(this.scene);
+    this.scene.background = new THREE.Color('#a8d0f0');
     this.forceHour = null;
     this.applyTime();
   }
@@ -372,20 +366,12 @@ export class WorldView {
     const C = (a, b, k) => new THREE.Color(a).lerp(new THREE.Color(b), k);
     const DAY = ['#4f8fd8', '#a8d0f0', '#e8f2fb'], GOLD = ['#5d7fc4', '#f2b07c', '#ffd9a8'], NIGHT = ['#050a22', '#18204a', '#2c2a55'];
     const stops = [0, 1, 2].map((i) => (day < 0.5 ? C(NIGHT[i], GOLD[i], day * 2) : C(GOLD[i], DAY[i], (day - 0.5) * 2)));
-    const c = this.skyCanvas.getContext('2d'), grad = c.createLinearGradient(0, 0, 0, 256);
-    grad.addColorStop(0, `#${stops[0].getHexString()}`); grad.addColorStop(0.55, `#${stops[1].getHexString()}`); grad.addColorStop(1, `#${stops[2].getHexString()}`);
-    c.fillStyle = grad; c.fillRect(0, 0, 4, 256);
-    this.scene.background.needsUpdate = true;
     // mưa/tuyết: trời xám, nắng yếu, sương gần hơn
     const W = this.weatherType;
     const grey = W === 'rain' ? 0.6 : W === 'snow' ? 0.35 : 0;
     if (grey) for (const st of stops) st.lerp(new THREE.Color(W === 'rain' ? '#6f7b8a' : '#dfe6ee'), grey * (0.4 + 0.6 * day));
-    if (grey) { // vẽ lại bầu trời bằng dải màu mới (đã xám đi)
-      const g2 = c.createLinearGradient(0, 0, 0, 256);
-      g2.addColorStop(0, `#${stops[0].getHexString()}`); g2.addColorStop(0.55, `#${stops[1].getHexString()}`); g2.addColorStop(1, `#${stops[2].getHexString()}`);
-      c.fillStyle = g2; c.fillRect(0, 0, 4, 256);
-      this.scene.background.needsUpdate = true;
-    }
+    this.sky.set(stops, h, night, grey ? 1 : 0);
+    this.scene.background.copy(stops[2]);
     this.scene.fog.color.copy(stops[2]);
     this.scene.fog.near = W === 'rain' ? 14 : 26; this.scene.fog.far = W === 'rain' ? 42 : 60;
     this.sun.intensity = (0.25 + 2.2 * day) * (W === 'rain' ? 0.45 : W === 'snow' ? 0.7 : 1);
@@ -395,14 +381,12 @@ export class WorldView {
     this.hemi.color.copy(C('#7d8cff', '#ffe9c7', day));
     for (const g of this.glows) g.m.emissiveIntensity = g.base * (1 + 1.6 * night);
     for (const l of this.nightLights) l.l.intensity = l.base * (0.35 + 1.5 * night);
-    this.starPts.material.opacity = Math.max(0, night - 0.2) * 1.1;
-    this.starPts.visible = night > 0.2;
     const hh = Math.floor(h), mm = String(Math.floor((h - hh) * 60)).padStart(2, '0');
     store.emit('time', { text: `${night > 0.5 ? '🌙' : day < 1 ? '🌇' : '☀️'} ${hh}:${mm}` });
     this.timeAt = performance.now();
   }
 
-  spinWheel() { if (!this.wheel.spinning) socket.emit('wheel:spin'); }
+  spinWheel() { if (!this.wheel.spinning && !this.wheelRequested) { this.wheelRequested = true; setTimeout(() => { this.wheelRequested = false; }, 800); socket.emit('wheel:spin'); } }
 
   setWeather(type) {
     this.weatherType = type;
@@ -542,6 +526,9 @@ export class WorldView {
   setupPointer() {
     this.rig.onTap = (e) => {
       if (!this.active || store.room !== 'lobby') return;
+      // bấm thẳng vào vòng quay (đứng trong khoảng 12m) → quay
+      const W = this.wheel.root.position;
+      if (Math.hypot(this.ctrl.pos.x - W.x, this.ctrl.pos.z - W.z) < 12 && this.engine.pick(e.clientX, e.clientY, [this.wheel.root], true).length) { this.spinWheel(); return; }
       const hit = this.engine.pick(e.clientX, e.clientY, [this.ground], false)[0];
       if (hit) this.ctrl.goTo(hit.point.x, hit.point.z);
     };
@@ -580,7 +567,7 @@ export class WorldView {
       },
       weather: ({ type }) => this.setWeather(type),
       'wheel:state': ({ foods, spin }) => { this.wheel.setFoods(foods); if (spin) { this.wheelBy = spin.by; this.wheel.spinTo(spin.index, spin.elapsed, spin.duration); } },
-      'wheel:spin': ({ index, by, elapsed, duration }) => { this.wheelBy = by; this.wheel.spinTo(index, elapsed, duration); store.emit('wheel-spin', { by }); },
+      'wheel:spin': ({ index, by, elapsed, duration }) => { this.wheelBy = by; this.wheel.spinTo(index, elapsed, duration); store.emit('wheel-spin', { by }); store.emit('wheel-busy', true); },
       'fish:state': ({ id, fishing, x, z }) => {
         this.showFisher(id, fishing, x, z);
         if (id === store.selfId && !fishing) { this.fishing = null; store.emit('fish', { state: 'idle' }); }
@@ -667,7 +654,7 @@ export class WorldView {
     if (near !== this.nearDoor) { this.nearDoor = near; store.emit('near-door', near); }
 
     // camera bám theo, ánh nắng + bóng đổ đi theo nhân vật
-    this.rig.update(dt, c.pos.x, c.pos.z, this.camera, (p) => p.y > 0.4);
+    this.rig.update(dt, c.pos.x, c.pos.z, this.camera, (p) => p.y > 0.4 && !this.houses.some((h) => p.y < h.top && p.x > h.x0 && p.x < h.x1 && p.z > h.z0 && p.z < h.z1)); // không cho camera chui vào nhà
     this.sun.position.set(c.pos.x - 8, 18, c.pos.z + 6);
     this.sun.target.position.set(c.pos.x, 0, c.pos.z);
 
@@ -679,6 +666,7 @@ export class WorldView {
     }
     this.fx.update(dt);
     this.weather.update(dt, t, c.pos);
+    this.sky.update(dt, this.camera.position);
     this.myPet?.update(dt, t, this.me.root);
     for (const r of this.remotes.values()) if (r.pet) { r.pet.root.visible = r.av.root.visible; r.pet.update(dt, t, r.av.root); }
     if (this.fishers.size) this.updateFishers(t, dt);

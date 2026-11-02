@@ -100,7 +100,7 @@ export class FoodWheel {
   /** Quay tới ô index (theo chiều kim đồng hồ, ≥6 vòng). elapsed: đã quay được bao lâu (người vào sau). */
   spinTo(index, elapsed, duration) {
     const th = TAU / this.n, center = (index + 0.5) * th;
-    const base = this.rot - TAU * 6;
+    const base = this.rot - TAU * 4; // 4 vòng rồi dừng
     const to = center + TAU * Math.floor((base - center) / TAU);
     this.anim = { from: this.rot, to, start: performance.now() - elapsed, duration, index };
   }

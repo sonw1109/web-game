@@ -181,7 +181,7 @@ function setupHud() {
 
   // Gợi ý "Nhấn E": vào phòng / câu cá
   const fishing = initFishing();
-  const hintState = { door: null, fish: false, wheel: false };
+  const hintState = { door: null, fish: false, wheel: false, wheelBusy: false, wheelDone: false };
   const touch = () => document.body.classList.contains('touch');
   const paintHint = () => {
     const hint = $('interact-hint'), b = hintState.door;
@@ -189,7 +189,8 @@ function setupHud() {
       hint.innerHTML = touch() ? `👆 Chạm để vào ${b.icon} <b></b>` : `Nhấn <kbd>E</kbd> để vào ${b.icon} <b></b>`;
       hint.querySelector('b').textContent = b.name;
     } else if (hintState.wheel) {
-      hint.innerHTML = `${touch() ? '👆 Chạm' : 'Nhấn <kbd>E</kbd>'} để quay 🎡 <b>Hôm nay ăn gì?</b>`;
+      hint.innerHTML = hintState.wheelBusy ? '🎡 Đang quay… chờ xem hôm nay ăn gì!'
+        : `${touch() ? '👆 Chạm' : 'Nhấn <kbd>E</kbd> hoặc bấm vào vòng quay'} để ${hintState.wheelDone ? 'quay tiếp' : 'quay'} 🎡 <b>Hôm nay ăn gì?</b>`;
     } else if (hintState.fish) {
       hint.innerHTML = `${touch() ? '👆 Chạm' : 'Nhấn <kbd>E</kbd>'} để câu cá 🎣 <button class="btn btn-ghost btn-sm" data-book>📖 Sổ cá</button>`;
       hint.querySelector('[data-book]').onclick = (e) => { e.stopPropagation(); fishing.openBook(); };
@@ -199,6 +200,7 @@ function setupHud() {
   store.on('near-door', (b) => { hintState.door = b; paintHint(); });
   store.on('near-fish', (v) => { hintState.fish = v; paintHint(); });
   store.on('near-wheel', (v) => { hintState.wheel = v; paintHint(); });
+  store.on('wheel-busy', (v) => { hintState.wheelBusy = v; if (!v) hintState.wheelDone = true; paintHint(); });
 
   // 🎡 Thẻ kết quả vòng quay món ăn
   const wp = $('wheel-panel');

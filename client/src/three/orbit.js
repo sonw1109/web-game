@@ -98,15 +98,21 @@ export class OrbitRig {
     this.sPitch += (this.pitch - this.sPitch) * a;
     this.sDist += (this.dist - this.sDist) * Math.min(1, dt * 6);
     this.target.lerp(new THREE.Vector3(x, this.height, z), Math.min(1, dt * 12));
+    // Kéo xuống dưới tầm ngang (pitch < LOW) → camera hạ sát đất phía sau và NGƯỚC LÊN trời
+    const LOW = 0.08;
+    const pitch = Math.max(this.sPitch, LOW);
     let d = this.sDist;
     const pos = new THREE.Vector3();
     for (let i = 0; i < 8; i++) {
-      const cp = Math.cos(this.sPitch);
-      pos.set(this.target.x + Math.sin(this.sYaw) * cp * d, this.target.y + Math.sin(this.sPitch) * d, this.target.z + Math.cos(this.sYaw) * cp * d);
+      const cp = Math.cos(pitch);
+      pos.set(this.target.x + Math.sin(this.sYaw) * cp * d, this.target.y + Math.sin(pitch) * d, this.target.z + Math.cos(this.sYaw) * cp * d);
       if (!fit || fit(pos)) break;
       d *= 0.8;
     }
     camera.position.copy(pos);
-    camera.lookAt(this.target);
+    const look = this._look || (this._look = new THREE.Vector3());
+    look.copy(this.target);
+    if (this.sPitch < LOW) look.y += (LOW - this.sPitch) * Math.max(6, d) * 1.8; // nâng dần lên trời (tối đa ~50°, vẫn thấy chân trời)
+    camera.lookAt(look);
   }
 }

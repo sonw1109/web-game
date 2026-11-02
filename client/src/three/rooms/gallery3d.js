@@ -59,7 +59,7 @@ export class GalleryView extends RoomView {
     this.texCache = new Map();
     this.onFrameClick = null;
     this.lastSent = { t: 0, x: 0, z: 0, rot: 0, moving: false };
-    this.rig = new OrbitRig({ dist: 4.6, minDist: 2.2, maxDist: 10, pitch: 0.38, minPitch: 0.05, maxPitch: 1.2, height: 1.5 });
+    this.rig = new OrbitRig({ dist: 4.6, minDist: 2.2, maxDist: 10, pitch: 0.38, minPitch: -0.5, maxPitch: 1.2, height: 1.5 }); // ngước lên xem trần (sao đêm)
     this.build();
   }
 
