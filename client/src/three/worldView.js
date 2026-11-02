@@ -490,7 +490,7 @@ export class WorldView {
     this.scene.add(av.root);
     const pet = p.appearance?.pet ? new Pet(['', 'cat', 'dog', 'chick', 'bunny'][p.appearance.pet], this.scene) : null;
     this.remotes.set(p.id, { av, pet, tx: p.x / PX, tz: p.y / PX, rot: p.rot || 0, moving: false });
-    this.labels.add(p.id, p.name, false);
+    this.labels.add(p.id, store.displayName(p), false);
     this.labels.setVisible(p.id, p.room === 'lobby' && this.active);
   }
 
@@ -566,6 +566,16 @@ export class WorldView {
         store.emit('players-changed');
       },
       weather: ({ type }) => this.setWeather(type),
+      'world:playerUpdated': ({ id, admin }) => {
+        const p = store.players.get(id);
+        if (!p) return;
+        p.admin = admin;
+        const name = store.displayName(p);
+        this.labels.rename(id === store.selfId ? 'me' : id, name);
+        this.engine.view?.renameLabel?.(id, name); // nhãn trong phòng đang đứng
+        store.emit('players-changed');
+        if (id === store.selfId) store.emit('admin', admin);
+      },
       'wheel:state': ({ foods, spin }) => { this.wheel.setFoods(foods); if (spin) { this.wheelBy = spin.by; this.wheel.spinTo(spin.index, spin.elapsed, spin.duration); } },
       'wheel:spin': ({ index, by, elapsed, duration }) => { this.wheelBy = by; this.wheel.spinTo(index, elapsed, duration); store.emit('wheel-spin', { by }); store.emit('wheel-busy', true); },
       'fish:state': ({ id, fishing, x, z }) => {

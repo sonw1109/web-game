@@ -105,8 +105,32 @@ export function registerBauCua(io, world) {
     broadcast();
   }
 
+  // 👑 Admin tặng / trừ điểm (chỉ admin mới làm được – server tự kiểm tra)
+  const MAX_GRANT = 1_000_000;
+  function grant(adminId, targetId, amount) {
+    const admin = world.get(adminId), target = world.get(targetId);
+    amount = Math.trunc(Number(amount));
+    if (!admin?.admin || !target || target.room !== 'baucua' || !Number.isFinite(amount) || !amount || Math.abs(amount) > MAX_GRANT) return false;
+    g.balances.set(targetId, Math.max(0, bal(targetId) + amount));
+    return true;
+  }
+
   io.on('connection', (socket) => {
     const inRoom = () => world.get(socket.id)?.room === 'baucua';
+    socket.on('baucua:grant', (d) => {
+      if (!grant(socket.id, d?.id, d?.amount)) return;
+      const a = Math.trunc(Number(d.amount));
+      sys(`👑 Admin ${world.get(socket.id).name} ${a > 0 ? 'tặng' : 'trừ'} ${world.get(d.id).name} ${Math.abs(a)} điểm`);
+      broadcast();
+    });
+    socket.on('baucua:grantAll', (amount) => {
+      const ms = members().filter((p) => !p.bot);
+      if (!world.get(socket.id)?.admin || !ms.length) return;
+      const ok = ms.map((p) => grant(socket.id, p.id, amount)).some(Boolean);
+      if (!ok) return;
+      sys(`👑 Admin ${world.get(socket.id).name} tặng cả bàn mỗi người ${Math.trunc(Number(amount))} điểm 🎉`);
+      broadcast();
+    });
     socket.on('baucua:sync', () => inRoom() && socket.emit('baucua:state', view()));
     socket.on('baucua:start', () => { if (inRoom() && g.phase === 'idle') { sys(`🎲 ${world.get(socket.id).name} mở sòng Bầu Cua!`); startBetting(); } });
     socket.on('baucua:bet', (d) => bet(socket.id, d?.sym, Number(d?.amount)));
@@ -128,5 +152,5 @@ export function registerBauCua(io, world) {
     else if (g.phase === 'result') startBetting();
   }, 250);
 
-  return { g, bet, clearBets, roll };
+  return { g, bet, clearBets, roll, grant };
 }

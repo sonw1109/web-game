@@ -12,6 +12,8 @@ services:
         value: "22"
       - key: APP_PASSWORD        # mật khẩu chung – nhập trên dashboard
         sync: false
+      - key: ADMIN_PASSWORD      # mật khẩu admin (tặng điểm Bầu Cua). Bỏ trống = tắt admin
+        sync: false
       # Tùy chọn: TURN server để voice/cam chạy được qua 4G / mạng khó (vd. metered.ca free)
       - key: TURN_URLS
         sync: false

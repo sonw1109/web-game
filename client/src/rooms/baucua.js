@@ -27,6 +27,7 @@ const TEMPLATE = `
   </div>
   <aside class="game-side">
     <h3>Điểm của mọi người</h3>
+    <div class="admin-bar" data-el="adminBar" hidden>👑 Admin: <button data-all="500">Tặng cả bàn +500</button><button data-all="2000">+2000</button><button data-el="adminOut" class="admin-out">Thoát admin</button></div>
     <ol class="scoreboard" data-el="board"></ol>
     <h3>Các lần lắc gần đây</h3>
     <div class="bc-history" data-el="history"></div>
@@ -63,6 +64,9 @@ export function createBauCuaRoom() {
   const paintChips = () => [...el('chips').children].forEach((b) => b.classList.toggle('active', +b.textContent === chip));
   paintChips();
   el('clear').onclick = () => socket.emit('baucua:clear');
+  for (const b of root.querySelectorAll('[data-all]')) b.onclick = () => socket.emit('baucua:grantAll', +b.dataset.all);
+  el('adminOut').onclick = () => socket.emit('admin:logout');
+  store.on('admin', () => state && render()); // vừa đăng nhập/thoát admin → hiện/ẩn nút
   el('roll').onclick = () => socket.emit('baucua:roll');
   el('start').onclick = () => socket.emit('baucua:start');
 
@@ -91,14 +95,28 @@ export function createBauCuaRoom() {
 
     const ol = el('board');
     ol.replaceChildren();
+    const admin = !!store.players.get(store.selfId)?.admin;
+    const grant = (id, amount) => socket.emit(id ? 'baucua:grant' : 'baucua:grantAll', id ? { id, amount } : amount);
+    const custom = (id, name) => {
+      const v = prompt(`Tặng bao nhiêu điểm cho ${name}? (số âm để trừ)`, '1000');
+      const n = Math.trunc(Number(v));
+      if (v !== null && Number.isFinite(n) && n) grant(id, n);
+    };
     for (const p of s.players) {
       const li = node('li', p.id === store.selfId ? 'me' : '');
       const d = s.lastDelta[p.id];
       const sc = node('b', null, String(p.balance));
       if (d) sc.append(node('small', d > 0 ? 'gain' : 'loss', ` ${d > 0 ? '+' : ''}${d}`));
-      li.append(node('span', null, p.name), sc);
+      li.append(node('span', null, store.displayName(store.players.get(p.id) || p)), sc);
+      if (admin && !p.bot) {
+        const row = node('div', 'admin-row');
+        for (const a of [100, 500, 1000]) { const b = node('button', null, `+${a >= 1000 ? a / 1000 + 'k' : a}`); b.onclick = () => grant(p.id, a); row.append(b); }
+        const e = node('button', null, '✎'); e.title = 'Nhập số điểm (âm để trừ)'; e.onclick = () => custom(p.id, p.name); row.append(e);
+        li.append(row);
+      }
       ol.append(li);
     }
+    el('adminBar').hidden = !admin;
     const h = el('history');
     h.replaceChildren(...s.history.map((d) => node('div', 'bc-roll', d.map((x) => ICON[x]).join(''))));
   }

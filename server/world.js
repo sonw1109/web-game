@@ -1,5 +1,6 @@
 // Quản lý người chơi trên bản đồ chung: vị trí, phòng, chat, emoji.
 import { EventEmitter } from 'node:events';
+import { timingSafeEqual, createHash } from 'node:crypto';
 const TICK_MS = 1000 / 15;
 const EMOJIS = ['😂', '❤️', '👍', '😮', '😢', '🔥'];
 const ROOMS = new Set(['lobby', 'cinema', 'draw', 'quiz', 'caro', 'gallery', 'typing', 'baucua']);
@@ -24,6 +25,16 @@ const emojiLimit = rateLimiter(5, 2000);  // tối đa 5 emoji / 2 giây
 const emoteLimit = rateLimiter(4, 3000);  // hành động (nhảy, cúi chào…)
 const fxLimit = rateLimiter(1, 8000);     // pháo hoa: 1 lần / 8 giây mỗi người
 export const EMOTES = ['dance', 'bow', 'wave', 'spin'];
+
+// 👑 Admin: mật khẩu riêng (ADMIN_PASSWORD). Production mà chưa đặt → tắt hẳn chế độ admin.
+const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || (process.env.NODE_ENV === 'production' ? '' : 'admin');
+const sha = (s) => createHash('sha256').update(String(s)).digest();
+/** So mật khẩu admin (thời gian so sánh cố định, chống đoán theo thời gian). */
+export function checkAdmin(pw, real = ADMIN_PASSWORD) {
+  if (!real || typeof pw !== 'string' || !pw) return false;
+  return timingSafeEqual(sha(pw), sha(real));
+}
+const adminTry = rateLimiter(5, 60_000); // tối đa 5 lần thử / phút
 
 const clampStr = (s, n) => String(s ?? '').trim().slice(0, n);
 const num = (v, d = 0) => (Number.isFinite(+v) ? +v : d);
@@ -50,7 +61,7 @@ export function registerWorld(io) {
 
   const publicPlayer = (p) => ({
     id: p.id, name: p.name, appearance: p.appearance,
-    x: p.x, y: p.y, dir: p.dir, moving: p.moving, room: p.room, bot: !!p.bot, rot: p.rot ?? 0,
+    x: p.x, y: p.y, dir: p.dir, moving: p.moving, room: p.room, bot: !!p.bot, rot: p.rot ?? 0, admin: !!p.admin,
   });
 
   /** Đổi phòng (dùng chung cho người thật và bot – bot không có socket). */
@@ -103,7 +114,36 @@ export function registerWorld(io) {
       if (p) changeRoom(p, room, socket);
     });
 
+    // ---- 👑 đăng nhập admin ----
+    const adminLogin = (pw) => {
+      const p = players.get(socket.id);
+      if (!p) return { error: 'Chưa vào Hội Quán' };
+      if (!ADMIN_PASSWORD) return { error: 'Chế độ admin chưa bật (cần đặt ADMIN_PASSWORD trên server)' };
+      if (!adminTry(socket.id)) return { error: 'Thử sai nhiều quá, đợi 1 phút nhé' };
+      if (!checkAdmin(pw)) return { error: 'Sai mật khẩu admin' };
+      p.admin = true;
+      io.emit('world:playerUpdated', { id: p.id, admin: true });
+      io.emit('chat:message', { system: true, text: `👑 ${p.name} đã trở thành admin`, ts: Date.now() });
+      return { ok: true };
+    };
+    socket.on('admin:login', (pw, ack) => reply(ack, adminLogin(pw)));
+    socket.on('admin:logout', () => {
+      const p = players.get(socket.id);
+      if (p?.admin) { p.admin = false; io.emit('world:playerUpdated', { id: p.id, admin: false }); }
+    });
+
     socket.on('chat:send', (text) => {
+      // lệnh bí mật /admin <mật khẩu> – không bao giờ phát lên chat chung
+      if (typeof text === 'string' && /^\/admin(\s|$)/i.test(text.trim())) {
+        const arg = text.trim().slice(6).trim();
+        if (arg.toLowerCase() === 'off') { // /admin off → thoát chế độ admin
+          const p = players.get(socket.id);
+          if (p?.admin) { p.admin = false; io.emit('world:playerUpdated', { id: p.id, admin: false }); }
+          return socket.emit('chat:message', { system: true, text: '👑 Đã thoát chế độ admin', ts: Date.now() });
+        }
+        const r = adminLogin(arg);
+        return socket.emit('chat:message', { system: true, text: r.ok ? '👑 Đăng nhập admin thành công' : `🔒 ${r.error}`, ts: Date.now() });
+      }
       const inDraw = players.get(socket.id)?.room === 'draw';
       if (!(inDraw ? guessLimit : chatLimit)(socket.id)) return socket.emit('chat:message', { system: true, text: '🐢 Bạn gửi nhanh quá, chậm lại chút nhé', ts: Date.now() });
       say(players.get(socket.id), text);
@@ -162,6 +202,7 @@ export function registerWorld(io) {
     chatFilters,
     io,
     get: (id) => players.get(id),
+    isAdmin: (id) => !!players.get(id)?.admin,
     say,
     changeRoom,
     /** Bot: người chơi ảo không có socket, đứng sẵn trong 1 phòng. */

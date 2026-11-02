@@ -18,6 +18,11 @@ export class Labels {
     this.items.set(id, { el });
   }
 
+  rename(id, name) {
+    const n = this.items.get(id)?.el.querySelector('.name');
+    if (n) n.textContent = name;
+  }
+
   addSign(text) {
     const el = document.createElement('div');
     el.className = 'sign';

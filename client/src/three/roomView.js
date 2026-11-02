@@ -43,7 +43,7 @@ export class RoomView {
       const av = new Avatar(p.appearance);
       this.scene.add(av.root);
       this.members.set(id, { av, seat: -2 });
-      this.labels.add(id, p.name, id === store.selfId);
+      this.labels.add(id, store.displayName(p), id === store.selfId);
     }
     this.placeAll();
   }
@@ -68,6 +68,7 @@ export class RoomView {
   }
 
   member(id) { return this.members.get(id); }
+  renameLabel(id, name) { this.labels.rename(id, name); }
   bubble(id, text) { if (this.members.has(id)) this.labels.bubble(id, text); }
   emoji(id, e) { if (this.members.has(id)) this.labels.emoji(id, e); }
   emote(id, type) { this.members.get(id)?.av.emote(type); }

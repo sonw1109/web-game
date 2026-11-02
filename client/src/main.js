@@ -165,6 +165,19 @@ function setupHud() {
       b.onclick = () => { if (k !== cur) { saveChoice(k); location.reload(); } else qm.hidden = true; };
       qm.append(b);
     }
+    // 👑 admin
+    const isAdmin = !!store.players.get(store.selfId)?.admin;
+    const ab = document.createElement('button');
+    ab.className = 'btn btn-sm btn-ghost admin-btn';
+    ab.textContent = isAdmin ? '👑 Thoát chế độ admin' : '🔑 Đăng nhập admin';
+    ab.onclick = () => {
+      qm.hidden = true;
+      if (isAdmin) { socket.emit('admin:logout'); toast('Đã thoát chế độ admin'); return; }
+      const pw = prompt('Mật khẩu admin:');
+      if (!pw) return;
+      socket.emit('admin:login', pw, (r) => toast(r?.ok ? '👑 Bạn đã là admin – vào Sòng Bầu Cua để tặng điểm' : `🔒 ${r?.error || 'Không đăng nhập được'}`, 4000));
+    };
+    qm.append(document.createElement('hr'), ab);
     qm.hidden = !qm.hidden;
   };
 

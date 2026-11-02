@@ -7,6 +7,8 @@ export const store = {
   events: new EventTarget(),
   emit(type, detail) { this.events.dispatchEvent(new CustomEvent(type, { detail })); },
   on(type, fn) { const h = (e) => fn(e.detail); this.events.addEventListener(type, h); return () => this.events.removeEventListener(type, h); },
+  /** Tên hiển thị (admin có 👑). */
+  displayName(p) { return p ? `${p.admin ? '👑 ' : ''}${p.name}` : '?'; },
   inRoom(room) { return [...this.players.values()].filter((p) => p.room === room); },
 };
 
