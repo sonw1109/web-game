@@ -1,0 +1,134 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
+  <meta name="theme-color" content="#0d0f1c" />
+  <title>Hội Quán</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🏮</text></svg>" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&family=Pixelify+Sans:wght@500;700&display=swap" rel="stylesheet" />
+</head>
+<body>
+  <!-- Màn hình mật khẩu -->
+  <section id="screen-login" class="screen" hidden>
+    <form class="card login-card" id="login-form">
+      <div class="logo">🏮</div>
+      <h1 class="pixel">Hội Quán</h1>
+      <p class="muted">Thế giới nhỏ của hội bạn mình</p>
+      <input id="login-password" type="password" placeholder="Mật khẩu chung" autocomplete="current-password" required />
+      <button class="btn btn-primary" type="submit">Vào thôi</button>
+      <p id="login-error" class="error" hidden></p>
+    </form>
+  </section>
+
+  <!-- Màn hình tạo nhân vật -->
+  <section id="screen-create" class="screen" hidden>
+    <form class="card create-card" id="create-form">
+      <h2 class="pixel">Tạo nhân vật</h2>
+      <div class="create-grid">
+        <div class="preview-box">
+          <canvas id="char-preview" width="16" height="24"></canvas>
+          <button type="button" class="btn btn-ghost btn-sm" id="char-random">🎲 Ngẫu nhiên</button>
+        </div>
+        <div class="create-fields">
+          <label>Tên
+            <input id="char-name" maxlength="16" placeholder="Tên hiển thị" required />
+          </label>
+          <div class="field"><span>Da</span><div class="swatches" data-part="skin"></div></div>
+          <div class="field"><span>Kiểu tóc</span><div class="chips" data-part="hairStyle"></div></div>
+          <div class="field"><span>Màu tóc</span><div class="swatches" data-part="hair"></div></div>
+          <div class="field"><span>Áo</span><div class="swatches" data-part="shirt"></div></div>
+          <div class="field"><span>Quần</span><div class="swatches" data-part="pants"></div></div>
+        </div>
+      </div>
+      <button class="btn btn-primary" type="submit">Bắt đầu ▶</button>
+    </form>
+  </section>
+
+  <!-- Thế giới -->
+  <div id="game" hidden></div>
+  <div id="world-labels"></div>
+  <div id="room-labels" hidden></div>
+
+  <div id="hud" hidden>
+    <div class="hud-top">
+      <div class="pill" id="online-pill">🟢 <span id="online-count">1</span> online</div>
+      <button class="btn btn-ghost btn-sm" id="btn-quality" title="Chất lượng đồ họa">⚙️</button>
+      <button class="btn btn-ghost btn-sm" id="btn-sound" title="Bật/tắt âm thanh">🔔</button>
+      <button class="btn btn-ghost btn-sm" id="btn-edit-char" title="Đổi nhân vật">👤 Nhân vật</button>
+    </div>
+    <div id="interact-hint" class="interact-hint" hidden></div>
+    <div class="emoji-bar" id="emoji-bar"></div>
+    <button class="emoji-toggle" id="emoji-toggle" title="Emoji">😊</button>
+    <div class="quality-menu glass" id="quality-menu" hidden></div>
+    <div id="toast-area"></div>
+  </div>
+
+  <aside id="chat" class="glass" hidden>
+    <div id="chat-log"></div>
+    <form id="chat-form">
+      <button type="button" class="chat-toggle" id="chat-toggle" title="Thu gọn / mở chat">💬<span class="unread" id="chat-unread" hidden></span></button>
+      <input id="chat-input" maxlength="200" placeholder="Nhấn Enter để chat…" autocomplete="off" enterkeyhint="send" />
+    </form>
+  </aside>
+
+  <!-- Rạp phim -->
+  <!-- Thanh trên cùng khi ở trong phòng: tên phòng + voice/cam -->
+  <header id="room-bar" hidden>
+    <h2 id="room-title" class="pixel"></h2>
+    <div id="rtc-tiles"></div>
+    <div class="room-bar-actions">
+      <button class="btn btn-icon rtc-btn off" id="btn-mic" title="Bật/tắt mic (M)">🎙️</button>
+      <button class="btn btn-icon rtc-btn off" id="btn-cam" title="Bật/tắt cam">📷</button>
+      <button class="btn btn-ghost btn-sm" id="btn-leave" title="Esc">⬅ Rời phòng</button>
+    </div>
+  </header>
+
+  <section id="room-cinema" class="room" hidden>
+    <div class="cinema-layout">
+      <div class="cinema-main">
+        <div class="screen-wrap" id="cinema-screen">
+          <div id="yt-player"></div>
+          <div class="yt-shield" id="yt-shield"></div>
+          <div class="cinema-empty" id="cinema-empty">
+            <div class="big">🍿</div>
+            <p>Chưa có phim. Dán link YouTube bên phải để bắt đầu!</p>
+          </div>
+        </div>
+        <button class="btn btn-primary cinema-unmute" id="cinema-click-play" hidden>▶ Bấm để xem cùng mọi người</button>
+        <div class="cinema-controls glass">
+          <button class="btn btn-icon" id="cc-play" title="Phát/Dừng">▶</button>
+          <button class="btn btn-icon" id="cc-next" title="Bài tiếp">⏭</button>
+          <span class="time" id="cc-time">0:00 / 0:00</span>
+          <input type="range" id="cc-seek" min="0" max="100" step="0.1" value="0" />
+          <span title="Âm lượng (chỉ của bạn)">🔊</span>
+          <input type="range" id="cc-volume" min="0" max="100" value="80" class="volume" />
+          <button class="btn btn-icon" id="cc-full" title="Toàn màn hình">⛶</button>
+        </div>
+      </div>
+      <div class="cinema-side">
+        <form id="cinema-add" class="add-form">
+          <input id="cinema-url" placeholder="Dán link YouTube…" autocomplete="off" />
+          <button class="btn btn-primary btn-sm" type="submit">Thêm</button>
+        </form>
+        <p class="error" id="cinema-error" hidden></p>
+        <h3>Đang chiếu</h3>
+        <div id="cinema-now" class="now-playing muted">—</div>
+        <h3>Hàng chờ <span class="muted" id="cinema-queue-count"></span></h3>
+        <ol id="cinema-queue" class="queue"></ol>
+        <h3>Khán giả</h3>
+        <ul id="cinema-viewers" class="viewers"></ul>
+      </div>
+    </div>
+  </section>
+
+  <section id="room-caro" class="room" hidden></section>
+  <section id="room-draw" class="room" hidden></section>
+  <section id="room-quiz" class="room" hidden></section>
+  <section id="room-gallery" class="room" hidden></section>
+
+  <script type="module" src="/src/main.js"></script>
+</body>
+</html>

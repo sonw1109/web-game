@@ -1,0 +1,21 @@
+# Render Blueprint – Dashboard → New → Blueprint → chọn repo này.
+services:
+  - type: web
+    name: hoi-quan
+    runtime: node
+    plan: free
+    buildCommand: npm install --include=dev && npm run build
+    startCommand: npm start
+    healthCheckPath: /healthz
+    envVars:
+      - key: NODE_VERSION
+        value: "22"
+      - key: APP_PASSWORD        # mật khẩu chung – nhập trên dashboard
+        sync: false
+      # Tùy chọn: TURN server để voice/cam chạy được qua 4G / mạng khó (vd. metered.ca free)
+      - key: TURN_URLS
+        sync: false
+      - key: TURN_USERNAME
+        sync: false
+      - key: TURN_CREDENTIAL
+        sync: false

@@ -1,0 +1,79 @@
+import express from 'express';
+import { createServer } from 'node:http';
+import { Server } from 'socket.io';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { registerWorld } from './world.js';
+import { registerCinema } from './rooms/cinema.js';
+import { registerCaro } from './rooms/caro.js';
+import { registerDrawGuess } from './rooms/drawGuess.js';
+import { registerQuiz } from './rooms/quiz.js';
+import { registerBots } from './bots/index.js';
+import { registerGallery } from './rooms/gallery.js';
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const PORT = process.env.PORT || 3000;
+const PASSWORD = process.env.APP_PASSWORD || 'hoiquan';
+const isProd = process.env.NODE_ENV === 'production';
+
+const app = express();
+const httpServer = createServer(app);
+const io = new Server(httpServer, {
+  cors: isProd ? undefined : { origin: true },
+  maxHttpBufferSize: 1e6,
+});
+
+app.get('/healthz', (_req, res) => res.send('ok'));
+
+// Cấu hình STUN/TURN cho WebRTC. TURN giúp kết nối khi 2 người ở sau NAT khó (4G, mạng công ty).
+// Đặt TURN_URLS (cách nhau dấu phẩy), TURN_USERNAME, TURN_CREDENTIAL – vd. tài khoản free của metered.ca
+app.get('/api/ice', (_req, res) => {
+  const iceServers = [{ urls: ['stun:stun.l.google.com:19302', 'stun:stun1.l.google.com:19302'] }];
+  if (process.env.TURN_URLS) {
+    iceServers.push({
+      urls: process.env.TURN_URLS.split(',').map((s) => s.trim()),
+      username: process.env.TURN_USERNAME,
+      credential: process.env.TURN_CREDENTIAL,
+    });
+  }
+  res.json({ iceServers });
+});
+
+
+// Khóa cả web bằng 1 mật khẩu chung
+io.use((socket, next) => {
+  if (socket.handshake.auth?.password === PASSWORD) return next();
+  next(new Error('WRONG_PASSWORD'));
+});
+
+// Lưới an toàn: 1 handler lỗi (dữ liệu lạ từ client) chỉ ghi log, không làm sập server của cả nhóm
+process.on('uncaughtException', (e) => console.error('[lỗi không bắt được]', e));
+process.on('unhandledRejection', (e) => console.error('[promise lỗi]', e));
+
+const world = registerWorld(io);
+registerCinema(io, world);
+const caro = registerCaro(io, world);
+const draw = registerDrawGuess(io, world);
+const quiz = registerQuiz(io, world);
+registerBots(world, { caro, draw, quiz });
+registerGallery(app, io, world, PASSWORD);
+
+// Lỗi từ middleware (vd. file quá lớn) → trả JSON để client hiện thông báo dễ hiểu
+app.use((err, _req, res, next) => {
+  if (res.headersSent) return next(err);
+  if (err.type === 'entity.too.large') return res.status(413).json({ error: 'Ảnh quá lớn (tối đa 4MB)' });
+  console.error('[http]', err.message);
+  res.status(err.status || 500).json({ error: 'Lỗi server' });
+});
+
+// Phục vụ web đã build – đặt SAU các route /api để không nuốt mất chúng
+if (isProd) {
+  const dist = path.join(__dirname, '..', 'client', 'dist');
+  app.use(express.static(dist));
+  app.get('/{*splat}', (_req, res) => res.sendFile(path.join(dist, 'index.html')));
+}
+
+httpServer.listen(PORT, () => {
+  console.log(`🏮 Hội Quán server chạy tại http://localhost:${PORT}`);
+  if (!process.env.APP_PASSWORD) console.log(`   (mật khẩu mặc định: "${PASSWORD}" – đặt APP_PASSWORD để đổi)`);
+});
