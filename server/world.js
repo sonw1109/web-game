@@ -2,7 +2,7 @@
 import { EventEmitter } from 'node:events';
 const TICK_MS = 1000 / 15;
 const EMOJIS = ['😂', '❤️', '👍', '😮', '😢', '🔥'];
-const ROOMS = new Set(['lobby', 'cinema', 'draw', 'quiz', 'caro', 'gallery']);
+const ROOMS = new Set(['lobby', 'cinema', 'draw', 'quiz', 'caro', 'gallery', 'typing', 'baucua']);
 
 /** Gọi callback của client nếu có (client có thể gửi rác thay vì hàm). */
 export const reply = (ack, data) => { if (typeof ack === 'function') ack(data); };
@@ -20,6 +20,9 @@ export function rateLimiter(n, ms) {
 }
 const chatLimit = rateLimiter(6, 4000);   // tối đa 6 tin / 4 giây
 const emojiLimit = rateLimiter(5, 2000);  // tối đa 5 emoji / 2 giây
+const emoteLimit = rateLimiter(4, 3000);  // hành động (nhảy, cúi chào…)
+const fxLimit = rateLimiter(1, 8000);     // pháo hoa: 1 lần / 8 giây mỗi người
+export const EMOTES = ['dance', 'bow', 'wave', 'spin'];
 
 const clampStr = (s, n) => String(s ?? '').trim().slice(0, n);
 const num = (v, d = 0) => (Number.isFinite(+v) ? +v : d);
@@ -107,6 +110,18 @@ export function registerWorld(io) {
       const p = players.get(socket.id);
       const e = EMOJIS[num(idx, -1)];
       if (p && e && emojiLimit(socket.id)) io.emit('emoji:show', { id: p.id, emoji: e });
+    });
+
+    // ---- Hành động & pháo hoa (chỉ ở nơi đi lại được: sảnh, phòng tranh) ----
+    socket.on('emote:send', (type) => {
+      const p = players.get(socket.id);
+      if (p && EMOTES.includes(type) && emoteLimit(socket.id)) io.emit('emote:show', { id: p.id, type });
+    });
+    socket.on('fx:fireworks', () => {
+      const p = players.get(socket.id);
+      if (!p || p.room !== 'lobby') return;
+      if (!fxLimit(socket.id)) return socket.emit('chat:message', { system: true, text: '🎆 Pháo hoa đang nạp lại, đợi vài giây nhé', ts: Date.now() });
+      io.emit('fx:fireworks', { id: p.id, name: p.name, x: p.x, y: p.y });
     });
 
     // ---- WebRTC signaling: chỉ chuyển tiếp giữa 2 người cùng phòng (không phải lobby) ----

@@ -696,3 +696,63 @@ body.touch.in-room:not([data-room="gallery"]) .joystick, body.touch #game[hidden
 }
 /* Bảng điều khiển đang mở trên điện thoại → tạm ẩn ô chat để không che nội dung bảng */
 @media (max-width: 900px) { body.sheet-open #chat { display: none; } }
+
+/* =====================================================================
+   ⌨️ Đua gõ phím · 🎲 Bầu cua · tiện ích mới
+   ===================================================================== */
+.clock { color: var(--muted); font-size: 13px; margin-left: 4px; }
+.emoji-sep { width: 1px; background: var(--border); margin: 4px 2px; }
+.caro-zoom { align-self: center; }
+
+.typing-main { justify-content: flex-end !important; padding-bottom: 18px; }
+.typing-card {
+  width: min(860px, 100%); display: flex; flex-direction: column; gap: 12px; padding: 16px 18px;
+  background: rgba(16, 12, 10, .8); backdrop-filter: blur(12px); border: 1px solid rgba(255,230,200,.14); border-radius: 20px; box-shadow: 0 20px 50px rgba(0,0,0,.45);
+}
+.typing-card.center { align-items: center; text-align: center; align-self: center; margin-bottom: 14vh; width: min(520px, 100%); }
+.typing-card.center p { margin: 0; }
+.typing-head { display: flex; justify-content: space-between; }
+.typing-text { font-size: 22px; line-height: 1.55; letter-spacing: .2px; user-select: none; }
+.typing-text .ok { color: #3ddc97; }
+.typing-text .cur { background: rgba(255, 209, 102, .35); border-bottom: 2px solid #ffd166; border-radius: 3px; }
+.typing-text .bad { background: rgba(255, 95, 109, .45); color: #fff; border-radius: 3px; }
+.typing-text .rest { color: #e8e4f0; opacity: .85; }
+.typing-input { font-size: 18px !important; padding: 12px 14px !important; }
+.typing-input.error { border-color: var(--danger) !important; box-shadow: 0 0 0 3px rgba(255,95,109,.25) !important; }
+.final li.me { color: #ffd2b8; font-weight: 600; }
+
+.baucua-main { justify-content: flex-end !important; padding-bottom: 14px; }
+.bc-status { align-self: center; font-size: 18px; font-weight: 600; background: rgba(16,12,10,.78); backdrop-filter: blur(12px); border: 1px solid rgba(255,230,200,.14); border-radius: 999px; padding: 8px 20px; }
+.baucua-main .timer-bar { align-self: center; }
+.bc-panel { width: min(640px, 100%); align-self: center; display: flex; flex-direction: column; gap: 10px; padding: 12px; background: rgba(16,12,10,.8); backdrop-filter: blur(12px); border: 1px solid rgba(255,230,200,.14); border-radius: 18px; }
+.bc-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.bc-cell {
+  position: relative; display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 8px 4px; cursor: pointer;
+  background: #fbf3e4; color: #7a1f1f; border: 3px solid #c0392b; border-radius: 12px; transition: transform .1s, box-shadow .2s;
+}
+.bc-cell:not(:disabled):active { transform: scale(.96); }
+.bc-cell:disabled { cursor: default; opacity: .85; }
+.bc-cell .ic { font-size: 30px; line-height: 1; }
+.bc-cell .nm { font-weight: 700; font-size: 13px; }
+.bc-cell .mine { font-size: 11px; font-weight: 700; color: #b8860b; min-height: 13px; }
+.bc-cell .total { position: absolute; top: 4px; right: 6px; font-size: 10px; color: #8a5a3c; }
+.bc-cell.win { box-shadow: 0 0 0 4px #ffd166, 0 0 26px #ffd166; animation: pulse2 .5s infinite alternate; }
+.bc-bar { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; justify-content: center; }
+.chips { display: flex; gap: 6px; }
+.chip { width: 44px; height: 44px; border-radius: 50%; border: 3px dashed rgba(255,255,255,.7); font-weight: 700; font-size: 13px; cursor: pointer; color: #fff; box-shadow: 0 3px 0 rgba(0,0,0,.35); }
+.chip-10 { background: #2f9e44; } .chip-50 { background: #1c7ed6; } .chip-100 { background: #e03e52; } .chip-500 { background: #7048e8; }
+.chip.active { outline: 3px solid #ffd166; transform: translateY(-3px); }
+.bc-history { display: flex; flex-direction: column; gap: 4px; }
+.bc-roll { background: var(--surface); border-radius: 8px; padding: 4px 10px; font-size: 20px; letter-spacing: 4px; }
+.scoreboard .loss { color: var(--danger); font-weight: 600; }
+
+@media (max-width: 900px) {
+  .typing-text { font-size: 17px; }
+  .typing-card { padding: 10px 12px; gap: 8px; }
+  .bc-cell .ic { font-size: 24px; }
+  .bc-cell { padding: 5px 2px; }
+  .chip { width: 38px; height: 38px; font-size: 12px; }
+  .bc-status { font-size: 14px; padding: 6px 14px; }
+  .emoji-bar { max-height: 60vh; overflow-y: auto; }
+  .emoji-sep { width: auto; height: 1px; margin: 2px 4px; }
+}

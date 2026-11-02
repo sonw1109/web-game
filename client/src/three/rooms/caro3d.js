@@ -36,6 +36,7 @@ export class CaroView extends RoomView {
     const cord = new THREE.Mesh(new THREE.CylinderGeometry(0.015, 0.015, 2.5), mat('#222'));
     cord.position.set(0, 5.2, 0);
     s.add(lampMesh, cord);
+    this.hanging = [lampMesh, cord]; // ẩn khi nhìn thẳng từ trên xuống (nếu không sẽ che bàn cờ)
 
     // Bàn trà thấp
     const table = new THREE.Mesh(new RoundedBoxGeometry(BOARD + 0.9, 0.16, BOARD + 0.9, 3, 0.06), mat('#4a2c18', { roughness: 0.5 }));
@@ -101,19 +102,80 @@ export class CaroView extends RoomView {
     pot.scale.y = 0.8; pot.position.set(BOARD / 2 + 0.25, TABLE_Y + 0.12, -BOARD / 2 - 0.2); pot.castShadow = true;
     s.add(pot);
 
-    // Input
-    this.down = null;
+    // Input: chuột = click đặt quân; cảm ứng = chạm 2 lần (lần 1 xem trước, lần 2 đặt);
+    // chế độ phóng to: chụm 2 ngón để zoom, kéo 1 ngón để di chuyển bàn cờ
+    this.focus = false; this.zoom = 1; this.pan = new THREE.Vector2(); this.pending = -1;
+    this.focusCam = new THREE.Vector3();
     const cv = this.engine.canvas;
-    this._pm = (e) => this.hover(e);
-    this._pd = (e) => { this.down = { x: e.clientX, y: e.clientY }; };
+    const pts = new Map();
+    let drag = null, pinch = 0;
+    this._pd = (e) => {
+      pts.set(e.pointerId, { x: e.clientX, y: e.clientY });
+      if (pts.size === 1) drag = { x0: e.clientX, y0: e.clientY, x: e.clientX, y: e.clientY, moved: false };
+      else { drag = null; pinch = this.pinchDist(pts); }
+    };
+    this._pm = (e) => {
+      if (!pts.has(e.pointerId)) { if (e.pointerType === 'mouse') this.hover(e); return; }
+      pts.set(e.pointerId, { x: e.clientX, y: e.clientY });
+      if (pts.size >= 2 && this.focus) {
+        const d = this.pinchDist(pts);
+        this.zoom = THREE.MathUtils.clamp(this.zoom * (d / pinch), 1, 3); pinch = d;
+        return;
+      }
+      if (!drag) return;
+      if (!drag.moved && Math.hypot(e.clientX - drag.x0, e.clientY - drag.y0) > 8) drag.moved = true;
+      if (drag.moved && this.focus && this.zoom > 1.05) {
+        const k = this.worldPerPx();
+        this.pan.x -= (e.clientX - drag.x) * k; this.pan.y -= (e.clientY - drag.y) * k;
+        const lim = (BOARD / 2) * (1 - 1 / this.zoom);
+        this.pan.x = THREE.MathUtils.clamp(this.pan.x, -lim, lim); this.pan.y = THREE.MathUtils.clamp(this.pan.y, -lim, lim);
+      }
+      drag.x = e.clientX; drag.y = e.clientY;
+      if (e.pointerType === 'mouse') this.hover(e);
+    };
     this._pu = (e) => {
-      if (!this.down || Math.hypot(e.clientX - this.down.x, e.clientY - this.down.y) > 8) return;
+      const wasTap = drag && !drag.moved && pts.size === 1;
+      pts.delete(e.pointerId);
+      if (pts.size === 0) drag = null;
+      if (!wasTap) return;
       const i = this.cellAt(e.clientX, e.clientY);
-      if (i >= 0) this.onCell?.(i);
+      if (i < 0) { this.pending = -1; this.showGhost(-1); return; }
+      if (e.pointerType === 'mouse' || this.pending === i) { this.pending = -1; this.onCell?.(i); }
+      else if (this.canPlay(i)) { this.pending = i; this.showGhost(i); } // chạm lần 1: xem trước
     };
     cheapen(s);
-    this.onActivate = () => { cv.addEventListener('pointermove', this._pm); cv.addEventListener('pointerdown', this._pd); cv.addEventListener('pointerup', this._pu); };
-    this.onDeactivate = () => { cv.removeEventListener('pointermove', this._pm); cv.removeEventListener('pointerdown', this._pd); cv.removeEventListener('pointerup', this._pu); this.ghost.visible = false; };
+    this.onActivate = () => { for (const [ev, fn] of [['pointermove', this._pm], ['pointerdown', this._pd], ['pointerup', this._pu], ['pointercancel', this._pu]]) cv.addEventListener(ev, fn); };
+    this.onDeactivate = () => {
+      for (const [ev, fn] of [['pointermove', this._pm], ['pointerdown', this._pd], ['pointerup', this._pu], ['pointercancel', this._pu]]) cv.removeEventListener(ev, fn);
+      this.ghost.visible = false; pts.clear(); this.setFocus(false);
+    };
+  }
+
+  pinchDist(pts) { const [a, b] = [...pts.values()]; return Math.max(1, Math.hypot(a.x - b.x, a.y - b.y)); }
+  /** Chiều cao camera (nhìn thẳng xuống) để cả bàn cờ vừa màn hình, chia theo mức zoom. */
+  focusHeight() {
+    const tanH = Math.tan(THREE.MathUtils.degToRad(this.camera.fov) / 2);
+    return ((BOARD / 2 + 0.25) / this.zoom) / (tanH * Math.min(1, this.camera.aspect));
+  }
+  worldPerPx() { return (2 * this.focusHeight() * Math.tan(THREE.MathUtils.degToRad(this.camera.fov) / 2)) / this.engine.size.h; }
+  setFocus(v) {
+    this.focus = v; this.zoom = 1; this.pan.set(0, 0);
+    for (const o of this.hanging) o.visible = !v;
+    this.camera.up.set(0, 1, 0);
+    this.onFocusChange?.(v);
+  }
+  canPlay(i) { const s = this.state, me = this.mySeat(); return !!(s && s.status === 'playing' && s.turn === me && !s.board[i]); }
+  showGhost(i) {
+    const me = this.mySeat();
+    if (i < 0 || !me) { this.ghost.visible = false; return; }
+    if (this.ghost.userData.seat !== me) {
+      this.scene.remove(this.ghost);
+      this.ghost = this.makePiece(me, true); this.ghost.userData.seat = me;
+      this.scene.add(this.ghost);
+    }
+    const [x, z] = this.cellPos(i);
+    this.ghost.position.set(x, TABLE_Y + 0.05, z);
+    this.ghost.visible = true;
   }
 
   makePiece(seat, ghost = false) {
@@ -170,6 +232,7 @@ export class CaroView extends RoomView {
   setState(s) {
     const prevRoles = `${this.state?.seats.X?.id}|${this.state?.seats.O?.id}`;
     this.state = s;
+    if (this.pending >= 0 && !this.canPlay(this.pending)) { this.pending = -1; this.showGhost(-1); }
     if (prevRoles !== `${s.seats.X?.id}|${s.seats.O?.id}`) this.placeAll();
     // đồng bộ quân cờ
     s.board.forEach((v, i) => {
@@ -199,6 +262,14 @@ export class CaroView extends RoomView {
   }
 
   onUpdate(dt, t) {
+    if (this.focus) {
+      // nhìn thẳng xuống bàn cờ; camera.up hướng −z để hàng trên của bàn nằm trên màn hình
+      const want = new THREE.Vector3(this.pan.x, TABLE_Y + this.focusHeight(), this.pan.y + 0.001);
+      this.focusCam.lerp(want, Math.min(1, dt * 8));
+      this.camera.position.copy(this.focusCam);
+      this.camera.up.set(0, 0, -1);
+      this.camera.lookAt(this.focusCam.x, TABLE_Y, this.focusCam.z - 0.001);
+    } else this.focusCam.copy(this.camera.position);
     const now = performance.now();
     for (const p of this.pieces.values()) { // quân mới rơi xuống bàn
       const a = Math.min(1, (now - p.userData.born) / 250);

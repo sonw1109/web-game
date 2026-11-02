@@ -125,6 +125,8 @@ export class Avatar {
   setPosition(x, z, y = 0) { this.root.position.set(x, y, z); }
   faceTo(angle) { this.targetRot = angle; }
   jump() { this.jumpT = 0.6; }
+  /** Hành động: 'dance' | 'bow' | 'wave' | 'spin' (≈2.6s, đi lại thì dừng). */
+  emote(type) { this.emoteType = type; this.emoteT = 2.6; }
 
   update(dt, t) {
     // xoay mượt về hướng mục tiêu (đường ngắn nhất)
@@ -133,6 +135,20 @@ export class Avatar {
     this.root.rotation.y += d * Math.min(1, dt * 12);
 
     const b = this.body;
+    if (this.emoteT > 0 && !this.moving) {
+      this.emoteT -= dt;
+      const p = 1 - this.emoteT / 2.6; // tiến độ 0..1
+      const k = Math.sin(t * 11);
+      b.rotation.set(0, 0, 0); b.position.y = 0; this.head.rotation.set(0, 0, 0);
+      if (this.emoteType === 'dance') { b.rotation.y = k * 0.55; b.rotation.z = Math.sin(t * 5.5) * 0.12; b.position.y = Math.abs(k) * 0.14; this.head.rotation.z = -k * 0.2; }
+      else if (this.emoteType === 'bow') { b.rotation.x = Math.sin(Math.min(1, p * 1.6) * Math.PI) * 0.55; }
+      else if (this.emoteType === 'wave') { b.rotation.z = Math.sin(t * 9) * 0.16; this.head.rotation.z = Math.sin(t * 9 + 1) * 0.25; b.position.y = Math.abs(Math.sin(t * 9)) * 0.05; }
+      else if (this.emoteType === 'spin') { b.rotation.y = p * Math.PI * 4; b.position.y = Math.sin(p * Math.PI) * 0.35; }
+      if (this.emoteT <= 0) { b.rotation.set(0, 0, 0); this.head.rotation.set(0, 0, 0); }
+      for (const f of this.feet) f.visible = !this.sitting;
+      return;
+    }
+    if (this.moving && this.emoteT > 0) { this.emoteT = 0; b.rotation.set(0, 0, 0); }
     if (this.moving) {
       this.phase += dt * 11;
       b.position.y = Math.abs(Math.sin(this.phase)) * 0.07;

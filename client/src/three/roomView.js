@@ -70,6 +70,7 @@ export class RoomView {
   member(id) { return this.members.get(id); }
   bubble(id, text) { if (this.members.has(id)) this.labels.bubble(id, text); }
   emoji(id, e) { if (this.members.has(id)) this.labels.emoji(id, e); }
+  emote(id, type) { this.members.get(id)?.av.emote(type); }
 
   activate() {
     this.active = true;

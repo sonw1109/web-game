@@ -2,11 +2,13 @@
 import { socket } from '../net/socket.js';
 import { store } from '../store.js';
 import { sound } from '../ui/sound.js';
+import { isTouch } from '../three/quality.js';
 
 const TEMPLATE = `
 <div class="game-layout">
   <div class="game-main">
     <div class="caro-status" data-el="status"></div>
+    <button class="btn btn-ghost btn-sm caro-zoom" data-el="zoom">🔍 Phóng to bàn cờ</button>
     <div class="caro-cta" data-el="cta"></div>
     <div class="timer-bar"><div data-el="timer"></div></div>
     <div class="caro-board" data-el="board"></div>
@@ -103,7 +105,7 @@ export function createCaroRoom() {
     if (state.status !== 'playing') {
       if (me && state.status === 'over' && state.seats.X && state.seats.O) big('▶ Chơi ván mới', () => socket.emit('caro:rematch'));
       else if (!me && freeSeat) big('▶ Chơi ngay', () => socket.emit('caro:sit', freeSeat));
-      else if (me) { const w = document.createElement('span'); w.className = 'muted'; w.textContent = '⏳ Đang chờ đối thủ ngồi vào bàn…'; cta.append(w); }
+      else if (me) { const w = document.createElement('span'); w.className = 'muted'; w.textContent = '⏳ Đang chờ đối thủ… (hoặc bấm 🤖 Chơi với bot ở trên)'; cta.append(w); }
     }
     cta.hidden = !cta.children.length;
 
@@ -130,11 +132,16 @@ export function createCaroRoom() {
     el('timer').classList.toggle('low', left < 8000);
   }
 
-  let view3d = null;
+  let view3d = null, autoFocused = false;
+  el('zoom').onclick = () => view3d?.setFocus(!view3d.focus);
   const onState = (s) => {
     const prev = state;
     state = s; receivedAt = Date.now();
     view3d?.setState(s);
+    // Điện thoại: đang chơi thì tự phóng to bàn cờ cho dễ chạm
+    const playing = s.status === 'playing' && (s.seats.X?.id === store.selfId || s.seats.O?.id === store.selfId);
+    if (playing && isTouch() && !autoFocused && view3d && !view3d.focus) { autoFocused = true; view3d.setFocus(true); }
+    if (!playing) autoFocused = false;
     if (prev && s.lastMove !== prev.lastMove && s.lastMove >= 0) sound.play('move');
     if (prev?.status === 'playing' && s.status === 'over') sound.play(s.winner === mySeat() ? 'win' : 'wrong');
     if (prev?.status !== 'playing' && s.status === 'playing') sound.play('start');
@@ -145,7 +152,10 @@ export function createCaroRoom() {
     title: '⭕ Quán Caro',
     open(view) {
       view3d = view;
-      if (view) view.onCell = (i) => socket.emit('caro:move', i);
+      if (view) {
+        view.onCell = (i) => socket.emit('caro:move', i);
+        view.onFocusChange = (v) => { el('zoom').textContent = v ? '↩ Thu nhỏ' : '🔍 Phóng to bàn cờ'; el('zoom').classList.toggle('btn-primary', v); };
+      }
       root.hidden = false;
       socket.on('caro:state', onState);
       socket.emit('caro:sync');

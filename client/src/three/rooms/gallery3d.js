@@ -160,6 +160,8 @@ export class GalleryView extends RoomView {
     this.ctrl.onKey = (code) => {
       if (code === 'Equal' || code === 'NumpadAdd') this.rig.zoom(-1);
       if (code === 'Minus' || code === 'NumpadSubtract') this.rig.zoom(1);
+      const em = { Digit7: 'dance', Digit8: 'bow', Digit9: 'wave', Digit0: 'spin' }[code];
+      if (em) socket.emit('emote:send', em);
     };
 
     // Chuột/chạm: kéo = xoay camera; chạm ảnh = xem lớn; chạm sàn = đi tới

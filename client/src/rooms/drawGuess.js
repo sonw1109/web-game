@@ -165,7 +165,7 @@ export function createDrawRoom() {
     const startBtn = (label) => {
       const b = h('button', label, 'btn btn-primary');
       b.onclick = () => socket.emit('draw:start');
-      if (s.players.length < 2) { b.disabled = true; h('p', 'Cần ít nhất 2 người trong phòng', 'muted'); }
+      if (s.players.length < 2) { b.disabled = true; h('p', 'Cần ít nhất 2 người – rủ bạn vào hoặc bấm 🤖 Chơi với bot ở trên', 'muted'); }
     };
     let show = true;
     if (s.phase === 'idle') {

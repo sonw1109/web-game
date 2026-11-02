@@ -7,6 +7,7 @@ import { store } from '../store.js';
 import { Avatar } from './avatar.js';
 import { Controller } from './controller.js';
 import { OrbitRig } from './orbit.js';
+import { Fireworks } from './fireworks.js';
 import { Labels } from '../ui/labels.js';
 import { mat, textures, tree, lamp, bench, house, fountain } from './props.js';
 import { MAP_W, MAP_H, BUILDINGS, SPAWN, FOUNTAIN, POND, GROUND, treePositions } from '../game/map.js';
@@ -80,6 +81,8 @@ export class WorldView {
     this.active = false;
 
     this.buildWorld();
+    this.fx = new Fireworks(this.scene);
+    this.setupNight();
     this.ctrl = new Controller({ bounds: { x0: 1, z0: 1, x1: MAP_W - 1, z1: MAP_H - 1 }, rects: this.rects, circles: this.circles });
     this.ctrl.onKey = (code) => this.onKey(code);
     this.setCharacter(character);
@@ -186,6 +189,80 @@ export class WorldView {
     for (const im of [trunks, leaves]) { im.castShadow = true; im.receiveShadow = true; this.scene.add(im); }
   }
 
+  // ---------------- Ngày / đêm theo giờ Việt Nam ----------------
+  setupNight() {
+    // gom các vật phát sáng (đèn, cửa sổ, đèn lồng) + đèn điểm để tối thì sáng hơn
+    const mats = new Set();
+    this.glows = []; this.nightLights = [];
+    this.scene.traverse((o) => {
+      if (o.isPointLight) this.nightLights.push({ l: o, base: o.intensity });
+      const m = o.material;
+      if (m && !Array.isArray(m) && m.emissive && m.emissiveIntensity > 0 && !mats.has(m) && (m.emissive.r + m.emissive.g + m.emissive.b) > 0) { mats.add(m); this.glows.push({ m, base: m.emissiveIntensity }); }
+    });
+    const g = new THREE.BufferGeometry(), pts = [];
+    for (let i = 0; i < 500; i++) {
+      const a = Math.random() * Math.PI * 2, e = 0.15 + Math.random() * 1.3, r = 90;
+      pts.push(MAP_W / 2 + Math.cos(a) * Math.cos(e) * r, Math.sin(e) * r, MAP_H / 2 + Math.sin(a) * Math.cos(e) * r);
+    }
+    g.setAttribute('position', new THREE.Float32BufferAttribute(pts, 3));
+    this.starPts = new THREE.Points(g, new THREE.PointsMaterial({ color: '#ffffff', size: 0.5, transparent: true, opacity: 0, fog: false, depthWrite: false }));
+    this.starPts.frustumCulled = false;
+    this.scene.add(this.starPts);
+    this.skyCanvas = document.createElement('canvas'); this.skyCanvas.width = 4; this.skyCanvas.height = 256;
+    this.scene.background = new THREE.CanvasTexture(this.skyCanvas);
+    this.scene.background.colorSpace = THREE.SRGBColorSpace;
+    this.forceHour = null;
+    this.applyTime();
+  }
+
+  /** Giờ hiện tại ở Việt Nam (UTC+7), dạng số thập phân 0..24. */
+  vnHour() {
+    if (this.forceHour != null) return this.forceHour;
+    const d = new Date();
+    return ((d.getUTCHours() + 7) % 24) + d.getUTCMinutes() / 60;
+  }
+
+  applyTime() {
+    const h = this.vnHour();
+    const day = THREE.MathUtils.clamp(Math.min((h - 5) / 1.5, (19 - h) / 1.5), 0, 1); // 0 = đêm, 1 = ngày
+    const night = 1 - day;
+    const C = (a, b, k) => new THREE.Color(a).lerp(new THREE.Color(b), k);
+    const DAY = ['#4f8fd8', '#a8d0f0', '#e8f2fb'], GOLD = ['#5d7fc4', '#f2b07c', '#ffd9a8'], NIGHT = ['#050a22', '#18204a', '#2c2a55'];
+    const stops = [0, 1, 2].map((i) => (day < 0.5 ? C(NIGHT[i], GOLD[i], day * 2) : C(GOLD[i], DAY[i], (day - 0.5) * 2)));
+    const c = this.skyCanvas.getContext('2d'), grad = c.createLinearGradient(0, 0, 0, 256);
+    grad.addColorStop(0, `#${stops[0].getHexString()}`); grad.addColorStop(0.55, `#${stops[1].getHexString()}`); grad.addColorStop(1, `#${stops[2].getHexString()}`);
+    c.fillStyle = grad; c.fillRect(0, 0, 4, 256);
+    this.scene.background.needsUpdate = true;
+    this.scene.fog.color.copy(stops[2]);
+    this.sun.intensity = 0.25 + 2.2 * day;
+    this.sun.color.copy(C('#ffb070', '#fff3e0', Math.max(0, day * 2 - 1)));
+    this.hemi ||= this.scene.children.find((o) => o.isHemisphereLight);
+    this.hemi.intensity = 0.45 + 0.7 * day;
+    this.hemi.color.copy(C('#7d8cff', '#ffe9c7', day));
+    for (const g of this.glows) g.m.emissiveIntensity = g.base * (1 + 1.6 * night);
+    for (const l of this.nightLights) l.l.intensity = l.base * (0.35 + 1.5 * night);
+    this.starPts.material.opacity = Math.max(0, night - 0.2) * 1.1;
+    this.starPts.visible = night > 0.2;
+    const hh = Math.floor(h), mm = String(Math.floor((h - hh) * 60)).padStart(2, '0');
+    store.emit('time', { text: `${night > 0.5 ? '🌙' : day < 1 ? '🌇' : '☀️'} ${hh}:${mm}` });
+    this.timeAt = performance.now();
+  }
+
+  // ---------------- Hành động & pháo hoa ----------------
+  emote(id, type) { (id === store.selfId ? this.me : this.remotes.get(id)?.av)?.emote(type); }
+  fireworks(x, y) {
+    const fx = x / PX, fz = y / PX - 7; // nổ phía trước mặt (phía bắc)
+    this.fx.launch(fx, fz);
+    // ở gần → camera tự ngước lên ngắm ~4 giây rồi trả lại góc cũ (nếu mình không tự xoay)
+    if (!this.active || Math.hypot(fx - this.ctrl.pos.x, fz - this.ctrl.pos.z) > 30) return;
+    const r = this.rig, prev = this._lookUpFrom ?? r.pitch;
+    this._lookUpFrom = prev;
+    r.pitch = Math.min(r.pitch, 0.12);
+    const set = r.pitch;
+    clearTimeout(this._lookUpT);
+    this._lookUpT = setTimeout(() => { if (Math.abs(r.pitch - set) < 1e-3) r.pitch = prev; this._lookUpFrom = null; }, 4200);
+  }
+
   // ---------------- Nhân vật ----------------
   setCharacter(character) {
     this.character = character;
@@ -225,6 +302,9 @@ export class WorldView {
     if (code === 'KeyE' && this.nearDoor) store.emit('enter-room', this.nearDoor.id);
     const digit = /^(?:Digit|Numpad)([1-6])$/.exec(code);
     if (digit) socket.emit('emoji:send', +digit[1] - 1);
+    const em = { Digit7: 'dance', Digit8: 'bow', Digit9: 'wave', Digit0: 'spin' }[code];
+    if (em) socket.emit('emote:send', em);
+    if (code === 'KeyF') socket.emit('fx:fireworks');
     if (code === 'Equal' || code === 'NumpadAdd') this.rig.zoom(-1.5);
     if (code === 'Minus' || code === 'NumpadSubtract') this.rig.zoom(1.5);
   }
@@ -347,6 +427,8 @@ export class WorldView {
     this.sun.target.position.set(c.pos.x, 0, c.pos.z);
 
     this.fountain.userData.animate(t);
+    this.fx.update(dt);
+    if (performance.now() - this.timeAt > 20000) this.applyTime(); // cập nhật trời mỗi 20 giây
   }
 
   afterRender() {

@@ -10,11 +10,15 @@ import { CaroView } from './three/rooms/caro3d.js';
 import { QuizView } from './three/rooms/quiz3d.js';
 import { DrawView } from './three/rooms/draw3d.js';
 import { GalleryView } from './three/rooms/gallery3d.js';
+import { TypingView } from './three/rooms/typing3d.js';
+import { BauCuaView } from './three/rooms/baucua3d.js';
 import { createCinemaRoom } from './rooms/cinema.js';
 import { createCaroRoom } from './rooms/caro.js';
 import { createDrawRoom } from './rooms/drawGuess.js';
 import { createQuizRoom } from './rooms/quiz.js';
 import { createGalleryRoom } from './rooms/gallery.js';
+import { createTypingRoom } from './rooms/typing.js';
+import { createBauCuaRoom } from './rooms/baucua.js';
 import { rtc } from './net/rtc.js';
 import { initVideoGrid } from './ui/videoGrid.js';
 import { sound } from './ui/sound.js';
@@ -96,6 +100,11 @@ function startWorld() {
   // Bong bóng chat & emoji hiện trên đầu nhân vật ở màn đang xem (sảnh hoặc phòng)
   socket.on('chat:message', (m) => { if (!m.system && m.id) engine.view?.bubble?.(m.id, m.text); });
   socket.on('emoji:show', ({ id, emoji }) => engine.view?.emoji?.(id, emoji));
+  socket.on('emote:show', ({ id, type }) => engine.view?.emote?.(id, type));
+  socket.on('fx:fireworks', ({ x, y }) => {
+    world.fireworks(x, y);
+    if (engine.view === world) [0, 450, 900].forEach((d) => setTimeout(() => sound.play('boom'), 800 + d));
+  });
 }
 
 function setupHud() {
@@ -120,6 +129,17 @@ function setupHud() {
     document.body.classList.add('touch');
     createJoystick((x, z) => { const c = engine?.view?.ctrl; if (c) c.analog = { x, z }; });
   }
+  // Hành động (nhảy, cúi chào…) – phím 7 8 9 0
+  const sep = document.createElement('span'); sep.className = 'emoji-sep'; bar.append(sep);
+  [['dance', '💃', 7], ['bow', '🙇', 8], ['wave', '👋', 9], ['spin', '🌀', 0]].forEach(([type, icon, key]) => {
+    const b = document.createElement('button');
+    b.innerHTML = `${icon}<small>${key}</small>`;
+    b.title = { dance: 'Nhảy', bow: 'Cúi chào', wave: 'Vẫy tay', spin: 'Xoay vòng' }[type];
+    b.onclick = () => socket.emit('emote:send', type);
+    bar.append(b);
+  });
+  $('btn-fireworks').onclick = () => socket.emit('fx:fireworks');
+  store.on('time', ({ text }) => { $('clock').textContent = `· ${text}`; });
   $('emoji-toggle').onclick = () => document.body.classList.toggle('emoji-open');
   bar.addEventListener('click', () => document.body.classList.remove('emoji-open'));
 
@@ -191,9 +211,25 @@ function setupRooms() {
     draw: createDrawRoom(),
     quiz: createQuizRoom(),
     gallery: createGalleryRoom(),
+    typing: createTypingRoom(),
+    baucua: createBauCuaRoom(),
   };
   // Cảnh 3D của từng phòng: dựng lần đầu khi vào, giữ lại cho lần sau
-  const VIEW = { cinema: CinemaView, caro: CaroView, draw: DrawView, quiz: QuizView, gallery: GalleryView };
+  const VIEW = { cinema: CinemaView, caro: CaroView, draw: DrawView, quiz: QuizView, gallery: GalleryView, typing: TypingView, baucua: BauCuaView };
+
+  // 🤖 Bot chỉ vào khi được mời
+  const BOT_ROOMS = ['caro', 'draw', 'quiz', 'typing', 'baucua'];
+  const botBtn = $('btn-bot');
+  const paintBot = () => {
+    const room = store.room;
+    botBtn.hidden = !BOT_ROOMS.includes(room);
+    const has = store.inRoom(room).some((p) => p.bot);
+    botBtn.textContent = has ? '🤖 Mời bot ra' : '🤖 Chơi với bot';
+    botBtn.classList.toggle('btn-primary', !has);
+    botBtn.classList.toggle('btn-ghost', has);
+  };
+  botBtn.onclick = () => socket.emit(store.inRoom(store.room).some((p) => p.bot) ? 'bot:remove' : 'bot:add');
+  store.on('players-changed', paintBot);
   const views = {};
 
   const leave = () => {
@@ -228,6 +264,7 @@ function setupRooms() {
     views[id] ||= new VIEW[id](engine);
     rooms[id].open(views[id]);
     engine.setView(views[id]);
+    paintBot();
     rtc.join(id);
     sound.play('enter');
   });

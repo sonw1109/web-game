@@ -25,6 +25,7 @@ const SOUNDS = {
   wrong: () => { tone(220, 0, 0.18, 'sawtooth', 0.06); tone(180, 0.15, 0.25, 'sawtooth', 0.06); },
   win: () => [523, 659, 784, 659, 784, 1046].forEach((f, i) => tone(f, i * 0.11, 0.2, 'triangle', 0.12)),
   start: () => [392, 523, 659].forEach((f, i) => tone(f, i * 0.1, 0.14, 'triangle', 0.1)),
+  boom: () => { tone(90, 0, 0.5, 'sawtooth', 0.08); tone(60, 0.05, 0.6, 'square', 0.05); [1200, 1500, 900].forEach((f, i) => tone(f, 0.15 + i * 0.07, 0.25, 'sine', 0.03)); },
 };
 
 export const sound = {

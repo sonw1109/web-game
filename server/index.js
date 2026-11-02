@@ -10,6 +10,8 @@ import { registerDrawGuess } from './rooms/drawGuess.js';
 import { registerQuiz } from './rooms/quiz.js';
 import { registerBots } from './bots/index.js';
 import { registerGallery } from './rooms/gallery.js';
+import { registerBauCua } from './rooms/baucua.js';
+import { registerTyping } from './rooms/typing.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PORT = process.env.PORT || 3000;
@@ -55,7 +57,9 @@ registerCinema(io, world);
 const caro = registerCaro(io, world);
 const draw = registerDrawGuess(io, world);
 const quiz = registerQuiz(io, world);
-registerBots(world, { caro, draw, quiz });
+const typing = registerTyping(io, world);
+const baucua = registerBauCua(io, world);
+registerBots(world, { caro, draw, quiz, typing, baucua });
 registerGallery(app, io, world, PASSWORD);
 
 // Lỗi từ middleware (vd. file quá lớn) → trả JSON để client hiện thông báo dễ hiểu

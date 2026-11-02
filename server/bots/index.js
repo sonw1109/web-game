@@ -1,20 +1,22 @@
-// 🤖 Bot chơi cùng: khi có người vào phòng game mà chỉ có 1 mình, bot tự vào chơi.
-// Tắt bằng biến môi trường BOTS=off.
+// 🤖 Bot chơi cùng: chỉ vào phòng khi có người bấm "Chơi với bot", tự rời khi phòng hết người thật.
+// Tắt hẳn bằng biến môi trường BOTS=off.
 import { readFileSync } from 'node:fs';
 import { bestMove } from './caroAI.js';
 
 const WORDS = JSON.parse(readFileSync(new URL('../data/words-vi.json', import.meta.url), 'utf8'));
-const GAME_ROOMS = ['caro', 'draw', 'quiz'];
+const GAME_ROOMS = ['caro', 'draw', 'quiz', 'typing', 'baucua'];
 const BOT = {
   caro: { name: '🤖 Bot Cờ', appearance: { skin: '#f1c27d', hair: '#1b1b1f', hairStyle: 2, shirt: '#2b2d42', pants: '#5b5f6a' } },
   draw: { name: '🤖 Bot Họa Sĩ', appearance: { skin: '#ffdbac', hair: '#e0487a', hairStyle: 1, shirt: '#ffd166', pants: '#1f2a5a' } },
   quiz: { name: '🤖 Bot Thông Thái', appearance: { skin: '#e0ac69', hair: '#d9d9e3', hairStyle: 3, shirt: '#3ddc97', pants: '#2d3446' } },
+  typing: { name: '🤖 Bot Gõ Nhanh', appearance: { skin: '#f1c27d', hair: '#5b6cff', hairStyle: 2, shirt: '#ff8a4c', pants: '#2d3446' } },
+  baucua: { name: '🤖 Bot Nhà Giàu', appearance: { skin: '#ffdbac', hair: '#c98b3a', hairStyle: 0, shirt: '#ffd166', pants: '#7a2e3a' } },
 };
 const WRONG_GUESSES = ['là gì ta 🤔', 'khó quá', 'hmm…', 'vẽ đẹp ghê', 'gợi ý đi'];
 const rnd = (a, b) => a + Math.random() * (b - a);
 const pick = (a) => a[Math.floor(Math.random() * a.length)];
 
-export function registerBots(world, { caro, draw, quiz }) {
+export function registerBots(world, { caro, draw, quiz, typing, baucua }) {
   if (process.env.BOTS === 'off') return;
   const botId = (room) => `bot-${room}`;
   const humans = (room) => world.inRoom(room).filter((p) => !p.bot);
@@ -29,20 +31,28 @@ export function registerBots(world, { caro, draw, quiz }) {
     for (const [k, t] of pending) if (k.startsWith(prefix)) { clearTimeout(t); pending.delete(k); }
   };
 
-  // ---------- Vào / rời phòng ----------
-  function syncBots() {
-    for (const room of GAME_ROOMS) {
-      const id = botId(room), has = !!world.get(id), n = humans(room).length;
-      if (n > 0 && !has) {
-        world.addBot(id, BOT[room].name, BOT[room].appearance, room);
-        world.io.to(`room:${room}`).emit('chat:message', { system: true, text: `${BOT[room].name} đã vào chơi cùng bạn`, ts: Date.now() });
-      } else if (n === 0 && has) {
-        cancelPrefix(room);
-        world.removeBot(id);
-      }
-    }
+  // ---------- Mời / mời ra ----------
+  function addBot(room) {
+    const id = botId(room);
+    if (world.get(id) || !GAME_ROOMS.includes(room)) return;
+    world.addBot(id, BOT[room].name, BOT[room].appearance, room);
+    world.io.to(`room:${room}`).emit('chat:message', { system: true, text: `${BOT[room].name} đã vào chơi cùng`, ts: Date.now() });
   }
-  world.events.on('room', ({ p }) => { if (!p.bot) setTimeout(syncBots, 700); });
+  function removeBot(room) {
+    if (!world.get(botId(room))) return;
+    cancelPrefix(room);
+    world.removeBot(botId(room));
+  }
+  world.io.on('connection', (socket) => {
+    const room = () => world.get(socket.id)?.room;
+    socket.on('bot:add', () => { const r = room(); if (GAME_ROOMS.includes(r)) addBot(r); });
+    socket.on('bot:remove', () => { const r = room(); if (GAME_ROOMS.includes(r)) removeBot(r); });
+  });
+  // Phòng hết người thật → bot cũng về
+  world.events.on('room', ({ p }) => {
+    if (p.bot) return;
+    setTimeout(() => { for (const r of GAME_ROOMS) if (!humans(r).length) removeBot(r); }, 700);
+  });
 
   // ---------- ⭕ Caro ----------
   function tickCaro() {
@@ -147,7 +157,30 @@ export function registerBots(world, { caro, draw, quiz }) {
     });
   }
 
+  // ---------- ⌨️ Đua gõ phím ----------
+  function tickTyping() {
+    const id = botId('typing');
+    if (!world.get(id) || typing.g.phase !== 'racing') return;
+    const r = typing.g.racers.get(id);
+    if (!r || r.finishedMs) return;
+    r.botCps ||= rnd(2.1, 4.6); // ~25–55 từ/phút
+    const elapsed = (Date.now() - typing.g.startAt) / 1000;
+    const target = Math.floor(elapsed * r.botCps);
+    if (target > r.progress) typing.progress(id, Math.min(target, typing.len()));
+  }
+
+  // ---------- 🎲 Bầu cua ----------
+  function tickBauCua() {
+    const id = botId('baucua');
+    if (!world.get(id) || baucua.g.phase !== 'betting') return;
+    schedule(`baucua-${baucua.g.round}`, rnd(2000, 9000), () => {
+      if (baucua.g.phase !== 'betting') return;
+      const n = 1 + Math.floor(Math.random() * 3);
+      for (let i = 0; i < n; i++) baucua.bet(id, pick(['nai', 'bau', 'ga', 'ca', 'cua', 'tom']), pick([10, 50, 50, 100]));
+    });
+  }
+
   setInterval(() => {
-    try { tickCaro(); tickDraw(); tickQuiz(); } catch (e) { console.error('[bots]', e); }
+    try { tickCaro(); tickDraw(); tickQuiz(); tickTyping(); tickBauCua(); } catch (e) { console.error('[bots]', e); }
   }, 400);
 }

@@ -15,11 +15,13 @@ export const BUILDINGS = [
   { id: 'quiz', name: 'Phòng Quiz', icon: '❓', x: 6, y: 21, w: 9, h: 6, roof: '#2f80c9', wall: '#fff4d6' },
   { id: 'caro', name: 'Quán Caro', icon: '⭕', x: 33, y: 21, w: 9, h: 6, roof: '#2e9d6a', wall: '#f6e8dc' },
   { id: 'gallery', name: 'Phòng Tranh', icon: '🖼️', x: 19, y: 3, w: 10, h: 6, roof: '#b8860b', wall: '#fbf6ec' },
+  { id: 'typing', name: 'Đua Gõ Phím', icon: '⌨️', x: 15, y: 22, w: 7, h: 6, roof: '#e67e22', wall: '#fdf2e9' },
+  { id: 'baucua', name: 'Sòng Bầu Cua', icon: '🎲', x: 25, y: 22, w: 7, h: 6, roof: '#b71c1c', wall: '#fff3e0' },
 ].map((b) => ({ ...b, doorX: b.x + Math.floor(b.w / 2), doorY: b.y + b.h }));
 
 export const SPAWN = { x: 24 * TILE, y: 20 * TILE };
 export const FOUNTAIN = { x: 24 * TILE, y: 17 * TILE, r: 22 };
-export const POND = { x: 27, y: 23, w: 5, h: 4 };
+export const POND = { x: 2, y: 11, w: 5, h: 4 };
 
 // ---- Lưới mặt đất ----
 // 0 cỏ, 1 đường đá, 2 quảng trường, 3 nước

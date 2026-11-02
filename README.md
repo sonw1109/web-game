@@ -17,6 +17,8 @@ Mở 2 tab (hoặc 1 tab ẩn danh) để thấy nhau.
 | E | Vào phòng khi đứng trước cửa |
 | Enter | Chat · Esc để thoát ô chat |
 | 1–6 | Thả emoji |
+| 7 8 9 0 | Hành động: nhảy, cúi chào, vẫy tay, xoay vòng |
+| F (hoặc nút 🎆) | Bắn pháo hoa cho cả sảnh xem |
 | Chạm / click bản đồ | Đi tới chỗ đó (điện thoại) |
 | Kéo chuột (trái/phải) · vuốt 1 ngón | Xoay camera, nhìn ra sau lưng (sảnh, phòng tranh) — WASD đi theo hướng camera |
 | Lăn chuột / phím + − · chụm 2 ngón | Phóng to / thu nhỏ camera |
@@ -32,12 +34,16 @@ Mở 2 tab (hoặc 1 tab ẩn danh) để thấy nhau.
 - 🎨 **Phòng Vẽ** – cần ≥2 người. Đoán bằng cách gõ vào ô chat (không cần dấu).
 - ❓ **Phòng Quiz** – 10 câu ngẫu nhiên từ `server/data/quiz-vi.json`, thêm câu tùy ý.
 - 🖼️ **Phòng Tranh** – 8 bệ trưng bày xoay (ảnh mới nhất) + 30 chỗ trên tường; treo ảnh chung (chọn nhiều ảnh / kéo-thả), thả tim, xem lớn, trình chiếu; 6 chế độ đèn đồng bộ cả phòng (Bảo tàng, Neon, Disco, Hoàng hôn, Sao đêm, Tắt đèn – soi đèn pin). Ảnh lưu ở `GALLERY_DIR` (mặc định thư mục tạm của máy).
+- ⌨️ **Đua Gõ Phím** – gõ câu ca dao (có dấu hay không dấu đều được), nhân vật chạy trên đường đua theo tốc độ gõ.
+- 🎲 **Sòng Bầu Cua** – đặt cược bằng điểm (1000 điểm khởi đầu), bát úp lắc, xúc xắc 3D. Chơi cho vui, không dùng tiền thật.
+- 🌗 Sảnh đổi ngày/đêm theo giờ Việt Nam.
 - 🎙️ Trong mọi phòng: bật mic/cam ở thanh trên cùng (mặc định tắt), bấm vào ô cam để phóng to.
 
 Muốn thêm từ cho Vẽ & Đoán: sửa `server/data/words-vi.json`.
 
-🤖 **Bot chơi cùng:** vào phòng Caro / Vẽ / Quiz là có 1 bot tự vào (rời khi phòng hết người).
-Caro: ngồi vào 1 ghế, bot ngồi ghế còn lại (bot nhường ghế nếu có người khác đang chờ). Tắt bot: đặt env `BOTS=off`.
+🤖 **Bot chơi cùng:** trong phòng game bấm **🤖 Chơi với bot** để mời bot (bấm lần nữa để mời ra); bot tự về khi phòng hết người. Tắt hẳn: env `BOTS=off`.
+
+📱 **Caro trên điện thoại:** đang chơi tự phóng to bàn cờ (nhìn từ trên xuống), chụm 2 ngón để zoom, kéo để di chuyển; chạm 1 lần xem trước, chạm lần 2 để đặt quân.
 
 ## Deploy lên Render (miễn phí)
 1. Đẩy code lên GitHub (repo private cũng được).
