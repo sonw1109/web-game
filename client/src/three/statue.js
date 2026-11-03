@@ -10,6 +10,8 @@ import FACE_URL from '../assets/ong-chu-face.jpg';
 
 const SCALE = 5.2;           // tượng = nhân vật × 5.2
 const PEDESTAL_H = 1.8;
+const LOTUS_H = 0.42;        // đài sen trên bệ
+const STAND_Y = PEDESTAL_H + LOTUS_H;
 const MAX_STICKS = 12;
 
 function M(color, o = {}) {
@@ -60,46 +62,127 @@ function plaqueTexture() {
   return t;
 }
 
-/** Tượng (đơn vị = kích thước nhân vật, mặt hướng +z). */
+/** Tượng (đơn vị = kích thước nhân vật, mặt hướng +z, tay phải ở phía -x). */
 function statueBody(bk, mats) {
-  const { gold, shirt, hair } = mats;
-  // áo thun + quần + giày
-  const shirtGeo = new THREE.LatheGeometry([[0, 0.17], [0.235, 0.17], [0.255, 0.24], [0.25, 0.38], [0.215, 0.48], [0.12, 0.55], [0, 0.56]].map(([x, y]) => new THREE.Vector2(x, y)), 24);
-  bk.add(shirt, shirtGeo);
+  const { gold, shirt, hair, pants, white, ingot } = mats;
+  const V = (x, y, z) => new THREE.Vector3(x, y, z);
+  const LIMB = new THREE.CapsuleGeometry(0.5, 1, 6, 14); // cao 2, bán kính 0.5
+  /** Đoạn chi tròn nối a → b, bán kính r. */
+  const limb = (mat, a, b, r) => {
+    const A = V(...a), B = V(...b), d = B.clone().sub(A), len = d.length();
+    const q = new THREE.Quaternion().setFromUnitVectors(V(0, 1, 0), d.normalize());
+    bk.add(mat, LIMB, { p: A.clone().add(B).multiplyScalar(0.5).toArray(), s: [r * 2, len / 2, r * 2], q });
+  };
+  const ball = (mat, p, r) => bk.add(mat, SPH, { p, s: typeof r === 'number' ? [r, r, r] : r });
+
+  // ---- giày sneaker (đế trắng, thân đen, dây trắng) + quần ----
   for (const s of [-1, 1]) {
-    bk.add(shirt, CYL, { p: [s * 0.09, 0.1, 0], s: [0.085, 0.18, 0.085] });
-    bk.add(hair, BOX, { p: [s * 0.09, 0.025, 0.04], s: [0.12, 0.05, 0.2] }); // giày
-    bk.add(shirt, SPH, { p: [s * 0.2, 0.47, 0], s: [0.075, 0.07, 0.075] }); // tay áo
+    const x = s * 0.088;
+    bk.add(white, new THREE.CapsuleGeometry(0.5, 1, 4, 12), { p: [x, 0.018, 0.035], s: [0.12, 0.08, 0.06], r: [Math.PI / 2, 0, 0] });
+    ball(hair, [x, 0.05, 0.03], [0.062, 0.045, 0.1]);
+    ball(hair, [x, 0.06, -0.02], [0.058, 0.055, 0.07]);
+    for (let k = 0; k < 3; k++) bk.add(white, BOX, { p: [x, 0.083 - k * 0.006, 0.07 + k * 0.022], s: [0.05, 0.006, 0.008], r: [-0.5, 0, 0] });
+    limb(pants, [x, 0.08, 0], [x * 1.05, 0.21, 0], 0.07);
+    bk.add(pants, new THREE.TorusGeometry(1, 0.15, 6, 18), { p: [x, 0.085, 0], s: 0.072, r: [Math.PI / 2, 0, 0] }); // gấu quần
   }
-  // tay phải giơ cao ban phước, tay trái đặt trước bụng
-  const arm = new THREE.CapsuleGeometry(0.25, 0.5, 4, 10); // cao 1, bán kính 0.25 → link() co theo độ dày
-  const ARM_T = 4 * 0.055;
-  bk.link(gold, arm, [0.22, 0.47, 0.02], [0.33, 0.72, 0.1], ARM_T);
-  bk.add(gold, SPH, { p: [0.34, 0.78, 0.11], s: [0.055, 0.07, 0.035] });
-  bk.link(gold, arm, [-0.22, 0.46, 0.02], [-0.06, 0.33, 0.24], ARM_T);
-  bk.add(gold, SPH, { p: [-0.04, 0.33, 0.25], s: [0.05, 0.045, 0.05] });
-  bk.add(gold, CYL, { p: [0, 0.59, 0], s: [0.07, 0.08, 0.07] }); // cổ
-  // đầu tròn
+  // ---- áo thun: thân + gấu áo + cổ tròn + tay áo ngắn ----
+  bk.add(shirt, new THREE.LatheGeometry([[0, 0.18], [0.215, 0.18], [0.245, 0.215], [0.258, 0.3], [0.25, 0.4], [0.225, 0.47], [0.17, 0.525], [0.09, 0.555], [0, 0.56]].map(([x, y]) => new THREE.Vector2(x, y)), 32));
+  bk.add(shirt, new THREE.TorusGeometry(1, 0.06, 6, 32), { p: [0, 0.195, 0], s: [0.235, 0.235, 0.235], r: [Math.PI / 2, 0, 0] });
+  bk.add(shirt, new THREE.TorusGeometry(1, 0.18, 8, 28), { p: [0, 0.548, 0.006], s: [0.082, 0.082, 0.07], r: [Math.PI / 2 - 0.15, 0, 0] });
+  // vai tròn
+  for (const s of [-1, 1]) ball(shirt, [s * 0.19, 0.475, 0], [0.085, 0.075, 0.08]);
+
+  // ---- tay phải (-x) giơ lên ban phước: vai → khuỷu → cổ tay, lòng bàn tay hướng ra trước ----
+  const rS = [-0.21, 0.47, 0.0], rE = [-0.33, 0.43, 0.07], rW = [-0.335, 0.63, 0.13];
+  limb(shirt, rS, [-0.27, 0.45, 0.035], 0.07);                     // tay áo
+  limb(gold, [-0.26, 0.45, 0.03], rE, 0.046);                      // bắp tay
+  ball(gold, rE, 0.046);                                           // khuỷu
+  limb(gold, rE, rW, 0.041);                                       // cẳng tay
+  const palmR = V(-0.335, 0.685, 0.14);
+  bk.add(gold, new THREE.CapsuleGeometry(0.5, 0.4, 4, 10), { p: palmR.toArray(), s: [0.085, 0.07, 0.03], r: [0, 0, 0] }); // lòng bàn tay
+  [-1.5, -0.5, 0.5, 1.5].forEach((k, i) => { // 4 ngón khép, hơi xòe
+    const x = palmR.x + k * 0.019, len = [0.05, 0.058, 0.055, 0.045][i];
+    limb(gold, [x, palmR.y + 0.035, palmR.z], [x + k * 0.004, palmR.y + 0.035 + len, palmR.z - 0.004], 0.0105);
+  });
+  limb(gold, [palmR.x + 0.03, palmR.y - 0.015, palmR.z], [palmR.x + 0.062, palmR.y + 0.02, palmR.z + 0.01], 0.012); // ngón cái
+
+  // ---- tay trái (+x) nâng thỏi vàng trước bụng ----
+  const lS = [0.21, 0.47, 0.0], lE = [0.29, 0.36, 0.06], lW = [0.13, 0.31, 0.2];
+  limb(shirt, lS, [0.26, 0.42, 0.03], 0.07);
+  limb(gold, [0.25, 0.43, 0.025], lE, 0.046);
+  ball(gold, lE, 0.046);
+  limb(gold, lE, lW, 0.041);
+  ball(gold, [0.1, 0.3, 0.22], [0.06, 0.035, 0.055]);             // lòng bàn tay ngửa
+  for (let i = 0; i < 4; i++) limb(gold, [0.075 - i * 0.012, 0.3, 0.255], [0.06 - i * 0.012, 0.325, 0.27], 0.01); // ngón cong đỡ thỏi vàng
+  // thỏi vàng (nén bạc kiểu thuyền) + ánh lấp lánh
+  bk.add(ingot, new THREE.SphereGeometry(1, 20, 10, 0, Math.PI * 2, Math.PI / 2, Math.PI / 2), { p: [0.09, 0.345, 0.225], s: [0.085, 0.04, 0.05], r: [Math.PI, 0, 0] });
+  bk.add(ingot, new THREE.TorusGeometry(1, 0.22, 8, 20), { p: [0.09, 0.345, 0.225], s: [0.075, 0.042, 0.04], r: [Math.PI / 2, 0, 0] });
+  ball(ingot, [0.09, 0.36, 0.225], [0.04, 0.03, 0.03]);
+  for (const s of [-1, 1]) ball(ingot, [0.09 + s * 0.072, 0.365, 0.225], [0.022, 0.03, 0.03]); // hai đầu vểnh
+
+  // ---- cổ + đầu ----
+  bk.add(gold, CYL, { p: [0, 0.585, 0], s: [0.072, 0.07, 0.068] });
   const H = [0, 0.84, 0];
   const at = (x, y, z) => [H[0] + x, H[1] + y, H[2] + z];
   bk.add(gold, SPH, { p: H, s: [0.33, 0.31, 0.31] });
-  for (const s of [-1, 1]) bk.add(gold, SPH, { p: at(s * 0.32, -0.02, 0), s: [0.05, 0.08, 0.05] }); // tai
-  // mặt (cả kính) là ảnh thật – xem faceDecal()
-  // tóc đen bù xù: chỏm + mái lệch + những lọn dựng
-  bk.add(hair, new THREE.SphereGeometry(1, 24, 12, 0, Math.PI * 2, 0, Math.PI * 0.52), { p: at(0, 0.02, -0.02), s: [0.345, 0.34, 0.34], r: [-0.38, 0, 0] });
-  let seed = 7; const rnd = () => ((seed = (seed * 16807) % 2147483647) / 2147483647);
-  for (let i = 0; i < 26; i++) {
-    const a = rnd() * Math.PI * 2, el = 0.25 + rnd() * 1.0;
-    const dir = new THREE.Vector3(Math.cos(a) * Math.sin(el), Math.cos(el), Math.sin(a) * Math.sin(el) - 0.15).normalize();
-    if (dir.z > 0.55 && dir.y < 0.6) continue; // chừa mặt
+  for (const s of [-1, 1]) {
+    ball(gold, at(s * 0.322, -0.02, 0.0), [0.042, 0.075, 0.05]);  // vành tai
+    ball(gold, at(s * 0.335, -0.02, 0.005), [0.02, 0.045, 0.03]);
+  }
+  // ---- tai nghe có dây (như trong ảnh) ----
+  for (const s of [-1, 1]) {
+    ball(white, at(s * 0.333, -0.035, 0.02), [0.026, 0.024, 0.026]);
+    // dây chạy dọc sau quai hàm (không vắt ngang mặt) rồi xuống trước ngực
+    limb(white, at(s * 0.335, -0.05, 0.0), at(s * 0.3, -0.2, -0.04), 0.0055);
+    limb(white, at(s * 0.3, -0.2, -0.04), at(s * 0.17, -0.3, 0.05), 0.0055);
+    limb(white, at(s * 0.17, -0.3, 0.05), [s * 0.1, 0.52, 0.17], 0.0055);
+    limb(white, [s * 0.1, 0.52, 0.17], [s * 0.03, 0.45, 0.205], 0.0055);
+  }
+  limb(white, [0, 0.45, 0.21], [0.015, 0.3, 0.24], 0.006);
+  ball(white, [0, 0.45, 0.21], 0.012); // chỗ nối 2 dây
+
+  // ---- tóc đen bù xù: chỏm + 2 lớp lọn tóc + mái lòa xòa ----
+  bk.add(hair, new THREE.SphereGeometry(1, 28, 14, 0, Math.PI * 2, 0, Math.PI * 0.55), { p: at(0, 0.015, -0.02), s: [0.348, 0.345, 0.345], r: [-0.4, 0, 0] });
+  const TUFT = new THREE.ConeGeometry(1, 1, 7); TUFT.translate(0, 0.5, 0);
+  let seed = 11; const rnd = () => ((seed = (seed * 16807) % 2147483647) / 2147483647);
+  const tuft = (dir, len, w, twist = 0.35) => {
+    const base = dir.clone().multiplyScalar(0.29);
+    const out = dir.clone().add(V((rnd() - 0.5) * twist, 0.1 + rnd() * 0.15, (rnd() - 0.5) * twist - 0.25)).normalize(); // lọn tóc rạp ra sau, không dựng đứng
+    const q = new THREE.Quaternion().setFromUnitVectors(V(0, 1, 0), out);
+    bk.add(hair, TUFT, { p: at(base.x, base.y + 0.01, base.z), s: [w, len, w * 0.6], q });
+  };
+  for (let i = 0; i < 80; i++) { // lọn tóc phủ đỉnh & sau gáy
+    const a = rnd() * Math.PI * 2, el = 0.15 + rnd() * 1.25;
+    const dir = V(Math.cos(a) * Math.sin(el), Math.cos(el), Math.sin(a) * Math.sin(el) - 0.18).normalize();
+    if (dir.z > 0.45 && dir.y < 0.75) continue; // chừa mặt
+    tuft(dir, 0.06 + rnd() * 0.06, 0.05 + rnd() * 0.03);
+  }
+  for (let i = 0; i < 9; i++) { // mái trước trán, chải lệch sang phải
+    const x = -0.2 + i * 0.05;
+    const dir = V(x * 1.6, 0.62, 0.62).normalize();
     const base = dir.clone().multiplyScalar(0.3);
-    const q = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 1, 0), dir.clone().add(new THREE.Vector3((rnd() - 0.5) * 0.6, 0.3, (rnd() - 0.5) * 0.6)).normalize());
-    bk.add(hair, CONE, { p: at(base.x, base.y + 0.02, base.z), s: [0.06 + rnd() * 0.03, 0.15 + rnd() * 0.1, 0.06], q });
+    const q = new THREE.Quaternion().setFromUnitVectors(V(0, 1, 0), V(-0.55 - rnd() * 0.25, -0.35, 0.75).normalize());
+    bk.add(hair, TUFT, { p: at(base.x, base.y + 0.02, base.z), s: [0.055, 0.08 + rnd() * 0.03, 0.03], q });
   }
-  for (let i = 0; i < 5; i++) { // mái lòa xòa trước trán, rẽ ngôi lệch phải
-    const x = -0.16 + i * 0.075;
-    bk.add(hair, CONE, { p: at(x, 0.2, 0.24), s: [0.06, 0.16, 0.045], r: [1.9, 0, 0.5 + i * 0.05] });
+  for (const s of [-1, 1]) for (let k = 0; k < 3; k++) { // tóc mai
+    const dir = V(s * 0.85, 0.35 - k * 0.12, 0.25).normalize();
+    const base = dir.clone().multiplyScalar(0.31);
+    bk.add(hair, TUFT, { p: at(base.x, base.y, base.z), s: [0.04, 0.08, 0.025], q: new THREE.Quaternion().setFromUnitVectors(V(0, 1, 0), V(s * 0.2, -1, 0.15).normalize()) });
   }
+}
+
+/** Đài sen vàng dưới chân tượng (đơn vị mét). */
+function lotus(bk, petal, petalIn, core) {
+  const P = new THREE.SphereGeometry(1, 14, 10, 0, Math.PI * 2, 0, Math.PI * 0.62);
+  bk.add(core, new THREE.CylinderGeometry(1.15, 1.25, 0.22, 24), { p: [0, 0.11, 0] });
+  for (const [n, r, tilt, sc, y, mat, off] of [[16, 1.18, 0.95, [0.36, 0.42, 0.14], 0.06, petal, 0], [12, 0.92, 0.55, [0.32, 0.4, 0.12], 0.12, petalIn, 0.26]]) {
+    for (let i = 0; i < n; i++) {
+      const a = (i / n) * Math.PI * 2 + off;
+      const q = new THREE.Quaternion().setFromEuler(new THREE.Euler(tilt, a, 0, 'YXZ'));
+      bk.add(mat, P, { p: [Math.sin(a) * r, y, Math.cos(a) * r], s: sc, q });
+    }
+  }
+  bk.add(core, new THREE.CylinderGeometry(0.95, 1.0, 0.12, 24), { p: [0, 0.36, 0] });
 }
 
 /** Mảnh cong ôm phía trước đầu tượng, dán ảnh mặt thật (viền mờ dần vào lớp vàng). */
@@ -140,7 +223,9 @@ export class Shrine {
     const gold = M('#f4c75e', { metalness: 0.75, roughness: 0.3, emissive: '#8a5c08', emissiveIntensity: 0.45 }); // tự sáng nhẹ để mặt tượng không tối khi khuất nắng
     this.gold = gold;
     const mats = {
-      gold, shirt: M('#2b2622', { metalness: 0.6, roughness: 0.35 }), hair: M('#15110e', { roughness: 0.35, metalness: 0.3 }),
+      gold, shirt: M('#24201d', { metalness: 0.55, roughness: 0.38 }), hair: M('#15110e', { roughness: 0.35, metalness: 0.3 }),
+      pants: M('#3a3a42', { metalness: 0.4, roughness: 0.5 }), white: M('#f4f1ea', { roughness: 0.45 }),
+      ingot: M('#ffd447', { metalness: 0.95, roughness: 0.15, emissive: '#b8860b', emissiveIntensity: 0.6 }),
     };
     // bệ đá 3 tầng
     const stone = M('#bcb3a6', { roughness: 0.85 }), stoneDark = M('#8f877c', { roughness: 0.9 });
@@ -148,6 +233,13 @@ export class Shrine {
     ped.add(stoneDark, new THREE.CylinderGeometry(2.3, 2.45, 0.45, 8), { p: [0, 0.22, 0] });
     ped.add(stone, new THREE.CylinderGeometry(1.75, 1.95, 1.05, 8), { p: [0, 0.97, 0] });
     ped.add(stoneDark, new THREE.CylinderGeometry(1.55, 1.6, 0.3, 8), { p: [0, PEDESTAL_H - 0.15, 0] });
+    const trim = M('#d9a94a', { metalness: 0.85, roughness: 0.3, emissive: '#5a3a00', emissiveIntensity: 0.3 });
+    for (const [r, y] of [[2.38, 0.45], [1.8, 1.5], [1.58, PEDESTAL_H]]) ped.add(trim, new THREE.TorusGeometry(r, 0.035, 6, 8), { p: [0, y, 0], r: [Math.PI / 2, 0, 0] }); // viền vàng
+    const lot = new Baker();
+    lotus(lot, M('#f3c6a0', { metalness: 0.6, roughness: 0.3, emissive: '#7a3a20', emissiveIntensity: 0.25 }), M('#f8dca0', { metalness: 0.7, roughness: 0.28, emissive: '#7a5410', emissiveIntensity: 0.3 }), trim);
+    const lotusG = lot.build(new THREE.Group());
+    lotusG.position.set(STATUE.x, PEDESTAL_H, STATUE.z);
+    root.add(lotusG);
     const pedestal = ped.build(new THREE.Group());
     pedestal.position.set(STATUE.x, 0, STATUE.z);
     pedestal.rotation.y = Math.PI / 8;
@@ -162,16 +254,16 @@ export class Shrine {
     const bk = new Baker(); statueBody(bk, mats); bk.build(st);
     st.add(faceDecal());
     st.scale.setScalar(SCALE);
-    st.position.set(STATUE.x, PEDESTAL_H, STATUE.z);
+    st.position.set(STATUE.x, STAND_Y, STATUE.z);
     st.rotation.y = Math.PI / 2; // mặt hướng đông (lối vào)
     root.add(st);
     this.statue = st;
     // vầng hào quang sau đầu
     const halo = (this.halo = new THREE.Mesh(new THREE.TorusGeometry(0.44, 0.022, 8, 40), new THREE.MeshBasicMaterial({ color: '#ffd76a', transparent: true, opacity: 0.75 })));
-    halo.position.set(0, 0.9, -0.2); halo.userData.keepMaterial = true;
+    halo.position.set(0, 0.97, -0.34); halo.userData.keepMaterial = true;
     st.add(halo);
     const glow = (this.glowDisc = new THREE.Mesh(new THREE.CircleGeometry(0.42, 32), new THREE.MeshBasicMaterial({ color: '#fff1b0', transparent: true, opacity: 0.12, depthWrite: false })));
-    glow.position.set(0, 0.9, -0.21); glow.userData.keepMaterial = true;
+    glow.position.set(0, 0.97, -0.35); glow.userData.keepMaterial = true;
     st.add(glow);
     this.buildAltar();
     this.glowT = 0;
@@ -269,11 +361,11 @@ export class Shrine {
     if (this.miracleT > 0) {
       this.miracleT -= dt;
       const k = Math.max(0, this.miracleT) / 4;
-      this.statue.position.y = PEDESTAL_H + Math.abs(Math.sin(t * 6)) * 0.25 * k;
+      this.statue.position.y = STAND_Y + Math.abs(Math.sin(t * 6)) * 0.25 * k;
       this.statue.rotation.y = Math.PI / 2 + Math.sin(t * 9) * 0.06 * k;
       const sc = 1 + Math.sin(t * 4) * 0.3 * k;
       this.halo.scale.setScalar(sc); this.glowDisc.scale.setScalar(sc * 1.2);
-    } else if (this.statue.position.y !== PEDESTAL_H) { this.statue.position.y = PEDESTAL_H; this.statue.rotation.y = Math.PI / 2; this.halo.scale.setScalar(1); this.glowDisc.scale.setScalar(1); }
+    } else if (this.statue.position.y !== STAND_Y) { this.statue.position.y = STAND_Y; this.statue.rotation.y = Math.PI / 2; this.halo.scale.setScalar(1); this.glowDisc.scale.setScalar(1); }
     if (far) return;
     for (const [i, f] of this.flames.entries()) { f.scale.set(1 + Math.sin(t * 17 + i) * 0.15, 1.8 + Math.sin(t * 23 + i * 2) * 0.35, 1); }
     // khói nhang bay lên uốn lượn
@@ -295,5 +387,5 @@ export class Shrine {
   }
 
   /** Điểm trên đỉnh tượng (để đặt bảng tên / bong bóng lời phán). */
-  top(out) { return out.set(STATUE.x, PEDESTAL_H + SCALE * 1.28, STATUE.z); }
+  top(out) { return out.set(STATUE.x, STAND_Y + SCALE * 1.3, STATUE.z); }
 }
