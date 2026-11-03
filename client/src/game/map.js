@@ -55,6 +55,11 @@ export const DOCK = { x: 50, y: 25, w: 2, h: 5 };      // bến gỗ đi ra gi�
 export const GARDEN = { x: 46, y: 3, w: 16, h: 11 };   // 🌸 vườn hoa đào
 export const PARK = { x: 19, y: 37, w: 11, h: 7 };     // 🏯 công viên + chòi nghỉ
 export const GAZEBO = { x: 24.5, y: 40.5 };
+// 🙏 Tượng đài Ông Chủ ở cánh đồng phía tây nam: tượng quay mặt về hướng đông (lối vào từ công viên)
+export const SHRINE = { x: 7.6, z: 38.4, r: 4.4 };
+export const STATUE = { x: SHRINE.x - 1.6, z: SHRINE.z, r: 2.3 };
+export const ALTAR = { x: SHRINE.x + 1.2, z: SHRINE.z, w: 0.9, d: 2.3 };     // bàn thờ (dài theo trục z)
+export const MATS = [-0.85, 0, 0.85].map((dz) => ({ x: SHRINE.x + 2.8, z: SHRINE.z + dz })); // chiếu quỳ
 
 // 🪑 Ghế ngồi được. ry: hướng mặt ghế (người ngồi nhìn về (sin ry, cos ry)); y: độ cao chân ghế.
 const faceTo = (x, z, tx, tz) => Math.atan2(tx - x, tz - z);
@@ -93,6 +98,9 @@ function buildGround() {
   fill(53, 8, 2, 7, 1);           // lối vào vườn đào
   fill(51, 5, 6, 4, 2);           // sân đá giữa vườn
   fill(PARK.x, PARK.y, PARK.w, PARK.h, 2); // sân công viên
+  // sân đá tròn quanh tượng đài + lối nhỏ giữa 2 luống hoa nối sang công viên
+  for (let j = 0; j < MAP_H; j++) for (let i = 0; i < MAP_W; i++) if (Math.hypot(i + 0.5 - SHRINE.x, j + 0.5 - SHRINE.z) < SHRINE.r) g[j][i] = 2;
+  fill(11, 40, PARK.x - 11, 1, 1);
   fill(POND.x, POND.y, POND.w, POND.h, 3);
   fill(LAKE.x, LAKE.y, LAKE.w, LAKE.h, 3);
   fill(DOCK.x, LAKE.y + LAKE.h, DOCK.w, 30 - LAKE.y - LAKE.h, 1); // lối từ đường dưới ra bến
@@ -104,6 +112,7 @@ export function isFree(tx, ty) {
   if (tx < 2 || ty < 2 || tx >= MAP_W - 2 || ty >= MAP_H - 2) return false;
   if (GROUND[ty][tx] !== 0) return false;
   if (Math.hypot(tx + 0.5 - GAZEBO.x, ty + 0.5 - GAZEBO.y) < 3) return false;
+  if (Math.hypot(tx + 0.5 - SHRINE.x, ty + 0.5 - SHRINE.z) < SHRINE.r + 1.5) return false;
   for (const b of BUILDINGS) if (inHouse(b, tx + 0.5, ty + 0.5, 1.6)) return false;
   return true;
 }

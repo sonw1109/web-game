@@ -14,6 +14,7 @@ import { registerBauCua } from './rooms/baucua.js';
 import { registerTyping } from './rooms/typing.js';
 import { registerFeatures } from './features.js';
 import { registerInteract } from './interact.js';
+import { registerShrine } from './shrine.js';
 import { registerWheel } from './wheel.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -69,6 +70,7 @@ registerGallery(app, io, world, PASSWORD);
 registerFeatures(io, world, { lake: { x: 44, y: 20, w: 14, h: 9 } });
 registerWheel(io, world);
 registerInteract(io, world);
+registerShrine(io, world);
 
 // Lỗi từ middleware (vd. file quá lớn) → trả JSON để client hiện thông báo dễ hiểu
 app.use((err, _req, res, next) => {

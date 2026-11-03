@@ -164,7 +164,7 @@ export class Avatar {
       this.emoteT -= dt;
       this.animateEmote(t, 1 - this.emoteT / this.emoteDur);
       if (this.emoteT <= 0) this.stopEmote();
-      for (const f of this.feet) f.visible = !this.sitting;
+      for (const f of this.feet) f.visible = !this.sitting && this.emoteType !== 'kowtow';
       return;
     }
     if (this.moving && this.emoteT > 0) this.stopEmote();
@@ -202,6 +202,13 @@ export class Avatar {
       case 'shock': if (p < 0.22) b.position.y = Math.sin((p / 0.22) * Math.PI) * 0.42; b.rotation.x = -0.22 * Math.min(1, p * 5); h.rotation.x = -0.1; break;
       case 'sleep': h.rotation.z = 0.32 + Math.sin(t * 1.6) * 0.05; h.rotation.x = 0.18; b.rotation.z = 0.06 + Math.sin(t * 1.6) * 0.04; b.position.y = -0.02 + Math.sin(t * 1.6) * 0.012; break;
       case 'shy': b.rotation.y = Math.sin(t * 3) * 0.35; h.rotation.x = 0.22; h.rotation.z = Math.sin(t * 3) * 0.1; break;
+      case 'kowtow': { // quỳ xuống rồi lạy 3 lạy
+        b.position.y = -0.2 * Math.min(1, p * 6);
+        const ph = Math.max(0, (p - 0.12) / 0.83) * 3;
+        b.rotation.x = p > 0.12 && p < 0.95 ? Math.abs(Math.sin(ph * Math.PI)) * 0.95 : 0;
+        h.rotation.x = 0.15;
+        break;
+      }
       case 'cheer': b.position.y = Math.abs(Math.sin(t * 7)) * 0.42; b.rotation.y = Math.sin(t * 3.5) * 0.3; h.rotation.x = -0.2; break;
     }
   }

@@ -858,3 +858,33 @@ body.flash::after { content: ''; position: fixed; inset: 0; z-index: 95; backgro
 body.touch #emote-panel { left: 16px; right: 16px; transform: none; bottom: calc(150px + env(safe-area-inset-bottom)); z-index: 30; }
 body.touch .emote-grid { grid-template-columns: repeat(4, 1fr); }
 body.touch .emote-grid button { padding: 9px 2px 6px; }
+
+/* ---------- 🙏 Tượng đài & bàn thờ ---------- */
+.plabel.statue .name { font-size: 14px; font-weight: 700; color: #ffe08a; background: linear-gradient(135deg, rgba(120,20,20,.85), rgba(60,10,10,.85)); border: 1px solid rgba(255,215,110,.5); padding: 3px 12px; }
+.plabel.statue .bubble { background: #fff6d8; color: #6b3a00; border: 1px solid #f1c75b; font-weight: 600; }
+#shrine-panel {
+  position: absolute; right: 16px; top: 76px; width: 340px; max-height: calc(100vh - 180px); overflow-y: auto; pointer-events: auto; z-index: 22;
+  background: linear-gradient(180deg, rgba(70,14,14,.94), rgba(30,10,12,.94)); border: 1px solid rgba(255,210,110,.45); border-radius: 18px;
+  padding: 14px 16px; box-shadow: 0 18px 50px rgba(0,0,0,.45), 0 0 30px rgba(255,190,80,.12); animation: pop .2s ease-out; backdrop-filter: var(--blur);
+}
+.shrine-head { display: flex; align-items: center; gap: 8px; }
+.shrine-head span { font-size: 22px; }
+.shrine-head b { flex: 1; color: #ffe08a; font-size: 16px; }
+.shrine-stats { margin: 6px 0 4px; color: #f6d9b0; font-size: 13px; }
+.shrine-stats span { font-weight: 700; color: #ffe08a; }
+.shrine-bless { margin: 4px 0; padding: 6px 10px; border-radius: 10px; background: rgba(255,215,110,.15); color: #ffe7a8; font-size: 13px; }
+.shrine-actions { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; margin: 10px 0; }
+.shrine-actions .btn { padding: 9px 4px; font-size: 13px; }
+.fortune-card { display: flex; gap: 10px; align-items: center; padding: 10px 12px; border-radius: 12px; margin-bottom: 10px; animation: pop .25s ease-out; background: rgba(255,255,255,.07); border: 1px solid rgba(255,255,255,.12); }
+.fortune-card .fi { font-size: 30px; }
+.fortune-card b { color: #ffe08a; }
+.fortune-card p { margin: 2px 0 0; font-size: 13px; color: #f3e6d6; }
+.fortune-card.lv-good { background: rgba(255,200,60,.16); border-color: rgba(255,210,90,.5); }
+.fortune-card.lv-bad { background: rgba(120,140,255,.12); border-color: rgba(140,160,255,.4); }
+.shrine-wish { display: flex; gap: 6px; margin-bottom: 10px; }
+.shrine-wish input { flex: 1; min-width: 0; }
+.shrine-sub { display: block; font-size: 13px; color: #f6d9b0; margin-bottom: 4px; }
+.shrine-wishes { list-style: none; margin: 0 0 8px; padding: 0; display: flex; flex-direction: column; gap: 4px; font-size: 13px; }
+.shrine-wishes li { padding: 5px 8px; border-radius: 8px; background: rgba(255,255,255,.05); word-break: break-word; }
+.shrine-wishes li b { color: #ffd2b8; }
+body.touch #shrine-panel { left: 12px; right: 12px; width: auto; top: auto; bottom: calc(150px + env(safe-area-inset-bottom)); max-height: 56vh; }

@@ -1,6 +1,6 @@
 // 🗺️ Bản đồ nhỏ: thấy bạn bè đang ở đâu, bấm vào tòa nhà / khu vực để dịch chuyển tới.
 import { store } from '../store.js';
-import { MAP_W, MAP_H, GROUND, BUILDINGS, LAKE, DOCK, GARDEN, GAZEBO, PLAZA } from '../game/map.js';
+import { MAP_W, MAP_H, GROUND, BUILDINGS, LAKE, DOCK, GARDEN, GAZEBO, PLAZA, SHRINE, MATS } from '../game/map.js';
 
 const COLORS = ['#5f9e4b', '#cdb994', '#e0d0b2', '#3f8fd0', '#86b86a'];
 
@@ -21,6 +21,7 @@ export function initMinimap({ getWorld }) {
     ...BUILDINGS.map((bd) => ({ icon: bd.icon, x: bd.cx, y: bd.cz, go: () => ({ x: bd.door.x + bd.dir.x * 0.6, z: bd.door.z + bd.dir.z * 0.6 }), rect: [bd.cx - 4, bd.cz - 4, 8, 8] })),
     { icon: '🎣', x: LAKE.x + LAKE.w / 2, y: LAKE.y + LAKE.h / 2, go: () => ({ x: DOCK.x + 1, z: LAKE.y + LAKE.h + 0.6 }), rect: [LAKE.x, LAKE.y, LAKE.w, LAKE.h] },
     { icon: '🌸', x: GARDEN.x + GARDEN.w / 2, y: GARDEN.y + GARDEN.h / 2, go: () => ({ x: 54, z: 11 }), rect: [GARDEN.x, GARDEN.y, GARDEN.w, GARDEN.h] },
+    { icon: '🙏', x: SHRINE.x - 1.6, y: SHRINE.z, go: () => ({ x: MATS[1].x + 1.6, z: MATS[1].z }), rect: [SHRINE.x - 4, SHRINE.z - 4, 8, 8] },
     { icon: '🏯', x: GAZEBO.x, y: GAZEBO.y, go: () => ({ x: GAZEBO.x, z: GAZEBO.y + 2.8 }), rect: [GAZEBO.x - 3, GAZEBO.y - 3, 6, 6] },
     { icon: '🎡', x: PLAZA.x - 4.6, y: PLAZA.z - 0.6, go: () => getWorld().wheelFront, rect: [PLAZA.x - 6, PLAZA.z - 2, 2.8, 2.8] },
     { icon: '⛲', x: PLAZA.x, y: PLAZA.z, go: () => ({ x: PLAZA.x, z: PLAZA.z + 2.6 }), rect: [PLAZA.x - 2.5, PLAZA.z - 2.5, 5, 5] },

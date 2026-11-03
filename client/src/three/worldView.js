@@ -13,12 +13,13 @@ import { Pet } from './pet.js';
 import { FoodWheel } from './foodWheel.js';
 import { Sky } from './sky.js';
 import { Critters } from './critters.js';
+import { Shrine } from './statue.js';
 import { Nature, FRUITS } from './nature.js';
 import { EMOTES } from './expressions.js';
 import { sound } from '../ui/sound.js';
 import { Labels } from '../ui/labels.js';
 import { mat, textures, tree, lamp, bench, house, fountain } from './props.js';
-import { MAP_W, MAP_H, BUILDINGS, SPAWN, FOUNTAIN, POND, GROUND, LAKE, DOCK, GARDEN, GAZEBO, PLAZA, BENCHES, SEATS, inHouse, treePositions } from '../game/map.js';
+import { MAP_W, MAP_H, BUILDINGS, SPAWN, FOUNTAIN, POND, GROUND, LAKE, DOCK, GARDEN, GAZEBO, PLAZA, BENCHES, SEATS, SHRINE, STATUE, ALTAR, MATS, inHouse, treePositions } from '../game/map.js';
 
 const PX = 16;                 // 1 mét = 16 px phía server
 const SEND_MS = 66;
@@ -197,6 +198,11 @@ export class WorldView {
     this.buildLake();
     this.buildGarden();
     this.buildPark();
+    // 🙏 Tượng đài Ông Chủ + bàn thờ
+    this.shrine = new Shrine(s);
+    this.circles.push({ x: STATUE.x, z: STATUE.z, r: 2.45 });
+    this.obbs.push({ cx: ALTAR.x, cz: ALTAR.z, rot: 0, w: ALTAR.w, d: ALTAR.d });
+    for (const dz of [-2.9, 2.9]) { const l = lamp(); l.position.set(SHRINE.x + 2.2, 0, SHRINE.z + dz); s.add(l); this.circles.push({ x: SHRINE.x + 2.2, z: SHRINE.z + dz, r: 0.15 }); }
     // Cây (gộp instanced cho nhẹ)
     this.buildTrees(treePositions());
     this.nature = new Nature(s, this.treeGroups);
@@ -499,6 +505,18 @@ export class WorldView {
     av.root.rotation.y = st.ry; av.faceTo(st.ry);
     av.sitting = true; av.moving = false;
   }
+  /** 🧎 Quỳ lên chiếu, quay mặt về tượng, lạy 3 lạy. */
+  kneel(i = 1) {
+    const m = MATS[i] || MATS[1];
+    this.stand();
+    this.ctrl.pos = { x: m.x, z: m.z }; this.ctrl.target = null;
+    const ang = Math.atan2(STATUE.x - m.x, STATUE.z - m.z);
+    this.ctrl.angle = ang; this.me.faceTo(ang); this.me.root.rotation.y = ang;
+    this.lastSent.x = NaN;
+    socket.emit('emote:send', 'kowtow');
+    socket.emit('shrine:bow');
+  }
+  nearShrine(x = this.ctrl.pos.x, z = this.ctrl.pos.z) { return Math.hypot(x - SHRINE.x, z - SHRINE.z) < SHRINE.r + 3; }
   petCritter(c) {
     this.me.faceTo(Math.atan2(c.x - this.ctrl.pos.x, c.z - this.ctrl.pos.z));
     this.ctrl.angle = this.me.targetRot;
@@ -519,6 +537,9 @@ export class WorldView {
   findThing() {
     const { x, z } = this.ctrl.pos;
     if (this.mySeat != null) return { type: 'stand', key: 'stand' };
+    const mat = MATS.findIndex((m) => Math.hypot(m.x - x, m.z - z) < 0.45);
+    if (mat >= 0) return { type: 'kneel', i: mat, key: `k${mat}` };
+    if (x > ALTAR.x && x - (ALTAR.x + ALTAR.w / 2) < 0.75 && Math.abs(z - ALTAR.z) < ALTAR.d / 2 + 0.3) return { type: 'altar', key: 'altar' };
     let seat = -1, sd = 0.9;
     SEATS.forEach((st, i) => { const d = Math.hypot(st.sx - x, st.sz - z); if (d < sd && !this.seatTaken(i)) { sd = d; seat = i; } });
     if (seat >= 0) return { type: 'seat', i: seat, key: `s${seat}` };
@@ -531,6 +552,8 @@ export class WorldView {
   }
   doThing(th) {
     if (th.type === 'stand') this.stand();
+    else if (th.type === 'kneel') this.kneel(th.i);
+    else if (th.type === 'altar') store.emit('shrine-open');
     else if (th.type === 'seat') this.sit(th.i);
     else if (th.type === 'critter') this.petCritter(th.c);
     else if (th.type === 'tree') this.shakeTree(th.tr);
@@ -668,6 +691,7 @@ export class WorldView {
         if (store.room !== 'lobby') socket.emit('world:setRoom', store.room);
         socket.emit('weather:sync');
         socket.emit('wheel:sync');
+        socket.emit('shrine:sync');
         store.emit('players-changed');
       });
     };
@@ -689,6 +713,28 @@ export class WorldView {
         if (id === store.selfId) { this.mySeat = seat; if (seat == null) this.me.sitting = false; }
         else { const r = this.remotes.get(id); if (r && seat == null) r.av.sitting = false; }
       },
+      'shrine:state': (st) => { this.shrine.setSticks(st.sticks.map((ts) => ({ ts }))); store.emit('shrine-state', st); },
+      'shrine:incense': ({ id, total, sticks }) => {
+        this.shrine.setSticks(sticks.map((ts) => ({ ts })));
+        this.shrine.pulse();
+        store.emit('shrine-state', { incense: total });
+        if (this.active && this.nearShrine()) { this.emoji(id, '🕯️'); sound.play('bell'); }
+      },
+      'shrine:bow': ({ bows }) => { this.shrine.pulse(0.6); store.emit('shrine-state', { bows }); },
+      'shrine:miracle': () => {
+        this.shrine.miracle();
+        if (!this.active) return;
+        [0, 500, 1000].forEach((d, k) => setTimeout(() => this.fx.launch(STATUE.x + (k - 1) * 2, STATUE.z), d));
+        if (this.nearShrine()) { sound.play('win'); this.labels.bubble('statue', '✨ Ta phù hộ cho tất cả các con! ✨'); }
+      },
+      'shrine:wish': (w) => {
+        const { id, text, reply } = w;
+        store.emit('shrine-wish', w);
+        if (!this.active) return;
+        this.bubble(id, `🙏 ${text}`);
+        setTimeout(() => this.labels.bubble('statue', reply), 1600);
+      },
+      'shrine:fortune': ({ id, icon }) => { if (this.active) this.emoji(id, icon || '🎋'); },
       'critter:pet': ({ id, i }) => {
         const c = this.critters.list[i];
         if (!c) return;
@@ -815,7 +861,7 @@ export class WorldView {
     if (near !== this.nearDoor) { this.nearDoor = near; store.emit('near-door', near); }
 
     // camera bám theo, ánh nắng + bóng đổ đi theo nhân vật
-    this.rig.update(dt, c.pos.x, c.pos.z, this.camera, (p) => p.y > 0.4 && !(p.y < 3.9 && BUILDINGS.some((b) => inHouse(b, p.x, p.z, 0.5)))); // không cho camera chui vào nhà
+    this.rig.update(dt, c.pos.x, c.pos.z, this.camera, (p) => p.y > 0.4 && !(p.y < 3.9 && BUILDINGS.some((b) => inHouse(b, p.x, p.z, 0.5))) && !(p.y < 9.5 && Math.hypot(p.x - STATUE.x, p.z - STATUE.z) < 2.8)); // không cho camera chui vào nhà / tượng
     this.sun.position.set(c.pos.x - 8, 18, c.pos.z + 6);
     this.sun.target.position.set(c.pos.x, 0, c.pos.z);
 
@@ -839,6 +885,7 @@ export class WorldView {
     const fishable = store.room === 'lobby' && !this.nearDoor && !this.fishing && this.canFish();
     if (fishable !== this.fishable) { this.fishable = fishable; store.emit('near-fish', fishable); }
     this.critters.update(dt, t, c.pos);
+    this.shrine.update(dt, t, c.pos);
     this.nature.update(dt, t);
     // ghế / con vật / cây ở gần → gợi ý (kiểm tra ~7 lần/giây cho nhẹ)
     if ((this._thingT = (this._thingT || 0) - dt) <= 0) {
@@ -846,7 +893,7 @@ export class WorldView {
       const th = store.room === 'lobby' && !this.nearDoor && !this.nearWheel && !this.fishing ? this.findThing() : null;
       if ((th?.key ?? null) !== (this.thing?.key ?? null)) {
         this.thing = th;
-        store.emit('near-thing', th && { type: th.type, label: th.type === 'critter' ? `${th.c.icon} ${th.c.name}` : th.type === 'tree' ? (th.tr.kind === 'sakura' ? '🌸 cây hoa đào' : '🌳 cây') : '🪑 ghế' });
+        store.emit('near-thing', th && { type: th.type, label: th.type === 'critter' ? `${th.c.icon} ${th.c.name}` : th.type === 'tree' ? (th.tr.kind === 'sakura' ? '🌸 cây hoa đào' : '🌳 cây') : th.type === 'kneel' ? '🙏 Ông Chủ' : th.type === 'altar' ? '🙏 bàn thờ' : '🪑 ghế' });
       } else if (th) this.thing = th;
     }
     if (performance.now() - this.timeAt > 20000) this.applyTime(); // cập nhật trời mỗi 20 giây
@@ -859,6 +906,13 @@ export class WorldView {
     put('me', this.me);
     for (const [id, r] of this.remotes) if (r.av.root.visible) put(id, r.av);
     const v = (this._cv ||= new THREE.Vector3());
+    { // bảng tên + lời phán của tượng (thấy từ xa)
+      if (!this.labels.items.has('statue')) { this.labels.add('statue', '🙏 Tượng Đài Ông Chủ Hội Quán', false); this.labels.items.get('statue').el.classList.add('statue'); }
+      const far = Math.hypot(STATUE.x - this.ctrl.pos.x, STATUE.z - this.ctrl.pos.z) > 40;
+      const s = proj(this.shrine.top(v));
+      this.labels.setVisible('statue', s.visible && !far);
+      this.labels.position('statue', s.x, s.y);
+    }
     for (const c of this.critters.list) {
       const near = Math.abs(c.x - this.ctrl.pos.x) < 7 && Math.abs(c.z - this.ctrl.pos.z) < 7;
       const id = `c${c.i}`;

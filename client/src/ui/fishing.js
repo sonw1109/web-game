@@ -35,6 +35,7 @@ export function initFishing() {
         const card = [node('div', 'fish-icon', d.fish.icon), node('div', 'fish-info')];
         card[1].append(node('b', null, d.fish.name), node('span', 'tag', d.fish.rarity), node('span', null, `${d.weight} kg · +${d.fish.pts} điểm`));
         if (d.isNew) card[1].append(node('span', 'new', '✨ MỚI vào sổ tay!'));
+        if (d.blessed) card[1].append(node('span', 'new', '🙏 nhờ Ông Chủ phù hộ'));
         show(...card);
         sound.play(d.fish.rarity === 'rác' ? 'wrong' : d.fish.rarity === 'thường' ? 'correct' : 'win');
       } else {

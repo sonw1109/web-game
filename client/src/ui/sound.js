@@ -35,6 +35,7 @@ const SOUNDS = {
   moo: () => { tone(140, 0, 0.6, 'sawtooth', 0.07); tone(120, 0.3, 0.5, 'sawtooth', 0.05); },
   chirp: () => [2600, 3100, 2800, 3300].forEach((f, i) => tone(f, i * 0.07, 0.05, 'sine', 0.04)),
   rustle: () => { for (let i = 0; i < 6; i++) tone(2000 + Math.random() * 3000, i * 0.04, 0.05, 'square', 0.012); },
+  bell: () => { tone(1320, 0, 1.4, 'sine', 0.07); tone(1980, 0, 0.9, 'sine', 0.03); tone(660, 0.02, 1.6, 'sine', 0.04); }, // chuông chùa
   boom: () => { tone(90, 0, 0.5, 'sawtooth', 0.08); tone(60, 0.05, 0.6, 'square', 0.05); [1200, 1500, 900].forEach((f, i) => tone(f, 0.15 + i * 0.07, 0.25, 'sine', 0.03)); },
 };
 

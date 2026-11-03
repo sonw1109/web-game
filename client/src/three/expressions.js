@@ -20,6 +20,7 @@ export const EMOTE_LIST = [
   { id: 'sleep', icon: '😴', name: 'Ngủ gật', face: 'sleep', float: '💤', dur: 4 },
   { id: 'shy', icon: '😳', name: 'Ngại ngùng', face: 'shy', float: '🌸', dur: 3 },
   { id: 'cheer', icon: '🎉', name: 'Ăn mừng', face: 'laugh', float: '🎉', dur: 2.8 },
+  { id: 'kowtow', icon: '🧎', name: 'Quỳ lạy', face: 'calm', float: '🙏', dur: 4.5 },
 ];
 export const EMOTES = Object.fromEntries(EMOTE_LIST.map((e) => [e.id, e]));
 

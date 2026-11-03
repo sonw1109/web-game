@@ -109,7 +109,10 @@ export function registerFeatures(io, world, { lake }) {
       const p = world.get(socket.id), s = p && sessions.get(p.id);
       if (!s) return;
       if (s.state !== 'bite') { socket.emit('fish:result', { early: true }); return stop(p.id); }
-      const f = pickFish();
+      // 🙏 được Ông Chủ phù hộ (vừa thắp hương) → bốc 2 lần, lấy con giá trị hơn
+      const blessed = (p.blessUntil || 0) > Date.now();
+      let f = pickFish();
+      if (blessed) { const g = pickFish(); if (g.pts > f.pts) f = g; }
       const weight = Math.round((f.w[0] + Math.random() * (f.w[1] - f.w[0])) * 100) / 100;
       const b = (book[p.name] ||= { points: 0, total: 0, species: {} });
       const sp = (b.species[f.id] ||= { count: 0, best: 0 });
@@ -117,7 +120,7 @@ export function registerFeatures(io, world, { lake }) {
       sp.count++; sp.best = Math.max(sp.best, weight);
       b.total++; b.points += f.pts;
       save();
-      socket.emit('fish:result', { fish: { id: f.id, name: f.name, icon: f.icon, rarity: f.rarity, pts: f.pts }, weight, isNew });
+      socket.emit('fish:result', { fish: { id: f.id, name: f.name, icon: f.icon, rarity: f.rarity, pts: f.pts }, weight, isNew, blessed });
       if (f.rarity === 'hiếm' || f.rarity === 'huyền thoại') {
         io.emit('chat:message', { system: true, text: `🎣 ${p.name} câu được ${f.icon} ${f.name} (${f.rarity}!) nặng ${weight}kg`, ts: Date.now() });
       }

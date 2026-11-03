@@ -24,7 +24,7 @@ const guessLimit = rateLimiter(15, 5000); // phòng Vẽ: đoán dồn dập là
 const emojiLimit = rateLimiter(5, 2000);  // tối đa 5 emoji / 2 giây
 const emoteLimit = rateLimiter(4, 3000);  // hành động (nhảy, cúi chào…)
 const fxLimit = rateLimiter(1, 8000);     // pháo hoa: 1 lần / 8 giây mỗi người
-export const EMOTES = ['dance', 'bow', 'wave', 'spin', 'laugh', 'love', 'angry', 'cry', 'shock', 'sleep', 'shy', 'cheer'];
+export const EMOTES = ['dance', 'bow', 'wave', 'spin', 'laugh', 'love', 'angry', 'cry', 'shock', 'sleep', 'shy', 'cheer', 'kowtow'];
 export const MAX_SEATS = 64;
 
 // 👑 Admin: mật khẩu riêng.
