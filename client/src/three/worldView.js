@@ -893,7 +893,7 @@ export class WorldView {
       const th = store.room === 'lobby' && !this.nearDoor && !this.nearWheel && !this.fishing ? this.findThing() : null;
       if ((th?.key ?? null) !== (this.thing?.key ?? null)) {
         this.thing = th;
-        store.emit('near-thing', th && { type: th.type, label: th.type === 'critter' ? `${th.c.icon} ${th.c.name}` : th.type === 'tree' ? (th.tr.kind === 'sakura' ? '🌸 cây hoa đào' : '🌳 cây') : th.type === 'kneel' ? '🙏 Ông Chủ' : th.type === 'altar' ? '🙏 bàn thờ' : '🪑 ghế' });
+        store.emit('near-thing', th && { type: th.type, icon: th.type === 'critter' ? th.c.icon : th.type === 'tree' ? (th.tr.kind === 'sakura' ? '🌸' : '🌳') : null, label: th.type === 'critter' ? `${th.c.icon} ${th.c.name}` : th.type === 'tree' ? (th.tr.kind === 'sakura' ? '🌸 cây hoa đào' : '🌳 cây') : th.type === 'kneel' ? '🙏 Ông Chủ' : th.type === 'altar' ? '🙏 bàn thờ' : '🪑 ghế' });
       } else if (th) this.thing = th;
     }
     if (performance.now() - this.timeAt > 20000) this.applyTime(); // cập nhật trời mỗi 20 giây

@@ -213,23 +213,24 @@ function setupHud() {
   const hintState = { door: null, fish: false, wheel: false, wheelBusy: false, wheelDone: false, thing: null };
   const THING_VERB = { stand: 'đứng dậy', seat: 'ngồi xuống', critter: 'vuốt ve', tree: 'rung', kneel: 'quỳ lạy', altar: 'mở' };
   const touch = () => document.body.classList.contains('touch');
+  // Nút tương tác tròn chỉ có biểu tượng (không có chữ để khỏi che màn hình điện thoại).
+  // Mô tả đầy đủ nằm ở title / aria-label (rê chuột trên máy tính sẽ thấy).
+  const THING_ICON = { stand: '🧍', seat: '🪑', kneel: '🧎', altar: '🙏' };
   const paintHint = () => {
     const hint = $('interact-hint'), b = hintState.door;
-    if (b) {
-      hint.innerHTML = touch() ? `👆 Chạm để vào ${b.icon} <b></b>` : `Nhấn <kbd>E</kbd> để vào ${b.icon} <b></b>`;
-      hint.querySelector('b').textContent = b.name;
-    } else if (hintState.wheel) {
-      hint.innerHTML = hintState.wheelBusy ? '🎡 Đang quay… chờ xem hôm nay ăn gì!'
-        : `${touch() ? '👆 Chạm' : 'Nhấn <kbd>E</kbd> hoặc bấm vào vòng quay'} để ${hintState.wheelDone ? 'quay tiếp' : 'quay'} 🎡 <b>Hôm nay ăn gì?</b>`;
-    } else if (hintState.thing) { // ghế / con vật / cây (ven hồ thì worldView đã ưu tiên câu cá)
-      const th = hintState.thing;
-      hint.innerHTML = `${touch() ? '👆 Chạm' : 'Nhấn <kbd>E</kbd>'} để ${THING_VERB[th.type]} <b></b>`;
-      hint.querySelector('b').textContent = th.type === 'stand' ? '' : th.label;
-    } else if (hintState.fish) {
-      hint.innerHTML = `${touch() ? '👆 Chạm' : 'Nhấn <kbd>E</kbd>'} để câu cá 🎣 <button class="btn btn-ghost btn-sm" data-book>📖 Sổ cá</button>`;
-      hint.querySelector('[data-book]').onclick = (e) => { e.stopPropagation(); fishing.openBook(); };
-    }
-    hint.hidden = !b && !hintState.fish && !hintState.wheel && !hintState.thing;
+    let icon = '', label = '', busy = false, book = false;
+    if (b) { icon = b.icon; label = `Vào ${b.name}`; }
+    else if (hintState.wheel) { icon = '🎡'; busy = hintState.wheelBusy; label = busy ? 'Đang quay…' : `${hintState.wheelDone ? 'Quay tiếp' : 'Quay'} – Hôm nay ăn gì?`; }
+    else if (hintState.thing) { const th = hintState.thing; icon = th.icon || THING_ICON[th.type] || '✋'; label = `${THING_VERB[th.type][0].toUpperCase()}${THING_VERB[th.type].slice(1)} ${th.type === 'stand' ? '' : th.label}`.trim(); }
+    else if (hintState.fish) { icon = '🎣'; label = 'Câu cá'; book = true; }
+    hint.hidden = !icon;
+    if (!icon) return;
+    const desc = touch() ? label : `${label} (phím E)`;
+    hint.title = desc; hint.setAttribute('aria-label', desc); hint.dataset.label = label;
+    hint.classList.toggle('busy', busy);
+    hint.innerHTML = `<span class="ih-icon"></span>${touch() ? '' : '<kbd class="ih-key">E</kbd>'}${book ? '<button class="ih-extra" data-book title="Sổ tay câu cá" aria-label="Sổ tay câu cá">📖</button>' : ''}`;
+    hint.querySelector('.ih-icon').textContent = icon;
+    if (book) hint.querySelector('[data-book]').onclick = (e) => { e.stopPropagation(); fishing.openBook(); };
   };
   store.on('near-door', (b) => { hintState.door = b; paintHint(); });
   store.on('near-fish', (v) => { hintState.fish = v; paintHint(); });

@@ -91,9 +91,9 @@ const smooth = (u) => u * u * (3 - 2 * u);
  */
 const DEFS = [
   { kind: 'duck', name: 'Vịt mẹ', icon: '🦆', sound: 'quack', rect: [45, 21, 4.2, 7], water: true, speed: 0.55, seg: 7, range: 2.6 },
+  { kind: 'duckling', name: 'Vịt con', icon: '🐥', sound: 'peep', follow: 0, lag: 0.45, water: true, range: 2.6 },
   { kind: 'duckling', name: 'Vịt con', icon: '🐥', sound: 'peep', follow: 0, lag: 0.9, water: true, range: 2.6 },
-  { kind: 'duckling', name: 'Vịt con', icon: '🐥', sound: 'peep', follow: 0, lag: 1.8, water: true, range: 2.6 },
-  { kind: 'duckling', name: 'Vịt con', icon: '🐥', sound: 'peep', follow: 0, lag: 2.7, water: true, range: 2.6 },
+  { kind: 'duckling', name: 'Vịt con', icon: '🐥', sound: 'peep', follow: 0, lag: 1.35, water: true, range: 2.6 },
   { kind: 'duck', name: 'Vịt bầu', icon: '🦆', sound: 'quack', rect: [53, 21, 4.2, 7], water: true, speed: 0.5, seg: 8, range: 2.6 },
   { kind: 'duck', name: 'Vịt cỏ', icon: '🦆', sound: 'quack', rect: [2.7, 9.7, 3.6, 2.6], water: true, speed: 0.35, seg: 9, range: 2.4 },
   { kind: 'hen', name: 'Gà mái', icon: '🐔', sound: 'cluck', rect: [39, 37, 6, 5], speed: 0.9, seg: 5, range: 1.5 },
@@ -138,7 +138,7 @@ export class Critters {
       const moving = Math.hypot(p.x - q.x, p.z - q.z) > 0.01;
       const rot = moving ? Math.atan2(p.x - q.x, p.z - q.z) : p.rot;
       // xếp hàng sau lưng (khi mẹ dừng lại thì con không chồng lên nhau)
-      const sp = d.lag * 0.38;
+      const sp = d.lag * 0.75; // ~0.35m mỗi con
       return { x: p.x - Math.sin(rot) * sp, z: p.z - Math.cos(rot) * sp, rot, moving };
     }
     const T = d.seg, k = Math.floor(t / T), u = t - k * T;
