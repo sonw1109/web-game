@@ -3,7 +3,8 @@ import { EventEmitter } from 'node:events';
 import { timingSafeEqual, createHash, scryptSync } from 'node:crypto';
 const TICK_MS = 1000 / 15;
 const EMOJIS = ['😂', '❤️', '👍', '😮', '😢', '🔥'];
-const ROOMS = new Set(['lobby', 'cinema', 'draw', 'quiz', 'caro', 'gallery', 'typing', 'baucua']);
+import { ARCADE_IDS } from '../client/src/game/arcade.js';
+const ROOMS = new Set(['lobby', 'cinema', 'draw', 'quiz', 'caro', 'gallery', 'typing', 'baucua', ...ARCADE_IDS]);
 
 /** Gọi callback của client nếu có (client có thể gửi rác thay vì hàm). */
 export const reply = (ack, data) => { if (typeof ack === 'function') ack(data); };
@@ -227,13 +228,21 @@ export function registerWorld(io) {
     });
   });
 
-  // Broadcast vị trí ~15 lần/giây khi có thay đổi
+  // Broadcast vị trí ~15 lần/giây – CHỈ những người vừa thay đổi (người đứng yên không tốn băng thông).
+  // Người mới vào đã nhận vị trí đầy đủ trong ack của world:join.
+  const lastSent = new WeakMap(); // player -> chuỗi trạng thái đã gửi gần nhất
   setInterval(() => {
     if (!dirty) return;
     dirty = false;
     const snap = [];
-    for (const p of players.values()) snap.push([p.id, Math.round(p.x), Math.round(p.y), p.dir, p.moving ? 1 : 0, Math.round((p.rot ?? 0) * 100) / 100]);
-    io.emit('world:snapshot', snap);
+    for (const p of players.values()) {
+      const row = [p.id, Math.round(p.x), Math.round(p.y), p.dir, p.moving ? 1 : 0, Math.round((p.rot ?? 0) * 100) / 100];
+      const key = `${row[1]},${row[2]},${row[3]},${row[4]},${row[5]}`;
+      if (lastSent.get(p) === key) continue;
+      lastSent.set(p, key);
+      snap.push(row);
+    }
+    if (snap.length) io.emit('world:snapshot', snap);
   }, TICK_MS);
 
   return {

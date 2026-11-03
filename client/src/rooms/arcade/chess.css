@@ -1,0 +1,132 @@
+/* ♟️ Cờ Vua */
+#room-chess .game-main { justify-content: flex-start; padding-top: 12px; gap: 8px; }
+#room-chess .chess-status {
+  font-size: 17px; font-weight: 600; min-height: 24px; text-align: center;
+  background: rgba(16, 12, 10, .72); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+  border-radius: 999px; padding: 7px 20px; border: 1px solid rgba(255, 230, 200, .14);
+}
+#room-chess .chess-wrap {
+  --bs: min(560px, 92vw, 56vh);
+  width: var(--bs); display: flex; flex-direction: column; gap: 6px;
+  background: rgba(16, 12, 10, .78); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 230, 200, .14); border-radius: 16px; padding: 8px;
+  box-shadow: 0 20px 50px rgba(0, 0, 0, .5); box-sizing: content-box;
+}
+#room-chess .chess-bar { display: flex; align-items: center; gap: 8px; min-height: 30px; padding: 2px 6px; border-radius: 10px; }
+#room-chess .chess-bar.active { background: rgba(255, 138, 76, .16); }
+#room-chess .chess-dot { font-size: 20px; line-height: 1; }
+#room-chess .chess-dot.white { color: #fffaf0; }
+#room-chess .chess-dot.black { color: #1d1612; text-shadow: 0 0 2px #f4e6cf, 0 0 1px #f4e6cf; }
+#room-chess .chess-name { font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 40%; }
+#room-chess .chess-caps { flex: 1; font-size: 16px; letter-spacing: -3px; white-space: nowrap; overflow: hidden; }
+#room-chess .chess-caps small { letter-spacing: 0; color: var(--muted); font-size: 12px; }
+#room-chess .chess-caps.white { color: #fffaf0; text-shadow: 0 1px 1px #000; }
+#room-chess .chess-caps.black { color: #1d1612; text-shadow: 0 0 1px #f4e6cf, 0 0 2px #f4e6cf; }
+#room-chess .chess-clock {
+  font-variant-numeric: tabular-nums; font-weight: 700; font-size: 16px; padding: 3px 10px; border-radius: 8px;
+  background: rgba(255, 255, 255, .08); color: #e9dccb; min-width: 64px; text-align: center; margin-left: auto;
+}
+#room-chess .chess-clock.running { background: #f2e4c9; color: #1b120c; }
+#room-chess .chess-clock.running.low { background: #e03131; color: #fff; animation: chess-blink 1s steps(2) infinite; }
+@keyframes chess-blink { 50% { opacity: .65; } }
+
+#room-chess .chess-board-box { position: relative; width: var(--bs); height: var(--bs); }
+#room-chess .chess-board {
+  display: grid; grid-template-columns: repeat(8, 1fr); grid-template-rows: repeat(8, 1fr);
+  width: 100%; height: 100%; border-radius: 6px; overflow: hidden; touch-action: manipulation;
+  box-shadow: 0 0 0 3px #3a2414, 0 8px 24px rgba(0, 0, 0, .5);
+}
+#room-chess .sq {
+  position: relative; border: 0; padding: 0; margin: 0; min-width: 0; min-height: 0; cursor: default;
+  display: grid; place-items: center; font: inherit; color: inherit; outline: none;
+}
+#room-chess .sq.light { background: #f0d9b5; }
+#room-chess .sq.dark { background: #b58863; }
+#room-chess .sq.last::before { content: ''; position: absolute; inset: 0; background: rgba(255, 214, 64, .45); }
+#room-chess .sq.sel::before { content: ''; position: absolute; inset: 0; background: rgba(90, 200, 120, .55); }
+#room-chess .sq.check { background: radial-gradient(circle, #ff3b3b 0%, rgba(255, 59, 59, .7) 35%, transparent 75%), #b58863; }
+#room-chess .sq.light.check { background: radial-gradient(circle, #ff3b3b 0%, rgba(255, 59, 59, .7) 35%, transparent 75%), #f0d9b5; }
+#room-chess .sq.target::after {
+  content: ''; position: absolute; width: 30%; height: 30%; border-radius: 50%; background: rgba(20, 60, 30, .38); pointer-events: none;
+}
+#room-chess .sq.target.cap::after { width: 86%; height: 86%; background: transparent; border: 5px solid rgba(20, 60, 30, .42); box-sizing: border-box; }
+#room-chess .sq.target, #room-chess .sq.movable { cursor: pointer; }
+#room-chess .my-turn .sq.movable:hover .pc { transform: translateY(-2px) scale(1.06); }
+#room-chess .sq.target:hover::after { background: rgba(20, 60, 30, .6); }
+/* Tọa độ a–h, 1–8 ở mép bàn */
+#room-chess .co { position: absolute; inset: 2px 3px; pointer-events: none; font-style: normal; font-size: 10px; font-weight: 700; z-index: 2; }
+#room-chess .co .r { position: absolute; top: 0; left: 0; }
+#room-chess .co .f { position: absolute; bottom: 0; right: 0; }
+#room-chess .sq.light .co { color: #b58863; }
+#room-chess .sq.dark .co { color: #f0d9b5; }
+#room-chess .sq .pc { position: relative; z-index: 1; }
+
+#room-chess .pc {
+  font-size: calc(var(--bs) / 8 * .8); line-height: 1; user-select: none; -webkit-user-select: none;
+  font-family: "Segoe UI Symbol", "DejaVu Sans", "Noto Sans Symbols 2", "Apple Symbols", serif;
+  transition: transform .12s;
+}
+#room-chess .pc.white {
+  color: #fffaf0;
+  text-shadow: 0 0 1px #2a1a10, 1px 1px 0 #2a1a10, -1px -1px 0 #2a1a10, 1px -1px 0 #2a1a10, -1px 1px 0 #2a1a10, 0 4px 6px rgba(0, 0, 0, .55);
+}
+#room-chess .pc.black {
+  color: #1d1612;
+  text-shadow: 0 0 1px #f4e6cf, 1px 1px 0 rgba(244, 230, 207, .55), -1px -1px 0 rgba(244, 230, 207, .55), 0 4px 6px rgba(0, 0, 0, .6);
+}
+#room-chess .pc[draggable="true"] { cursor: grab; }
+
+/* Hộp chọn phong cấp */
+#room-chess .chess-promo { position: absolute; inset: 0; display: grid; place-items: center; background: rgba(0, 0, 0, .55); border-radius: 6px; z-index: 3; }
+#room-chess .chess-promo[hidden] { display: none; }
+#room-chess .chess-promo-card {
+  display: flex; flex-direction: column; align-items: center; gap: 10px; padding: 14px 16px;
+  background: rgba(30, 20, 14, .95); border: 1px solid rgba(255, 230, 200, .2); border-radius: 14px;
+}
+#room-chess .chess-promo-row { display: flex; gap: 8px; }
+#room-chess .chess-promo-pc {
+  width: 58px; height: 58px; border-radius: 10px; border: 0; cursor: pointer; font-size: 44px; line-height: 1;
+  background: #f0d9b5; font-family: "Segoe UI Symbol", "DejaVu Sans", "Noto Sans Symbols 2", serif;
+}
+#room-chess .chess-promo-pc:hover { background: #ffe9a8; transform: translateY(-2px); }
+#room-chess .chess-promo-pc.white { color: #fffaf0; text-shadow: 1px 1px 0 #2a1a10, -1px -1px 0 #2a1a10, 1px -1px 0 #2a1a10, -1px 1px 0 #2a1a10, 0 3px 5px rgba(0, 0, 0, .5); }
+#room-chess .chess-promo-pc.black { color: #1d1612; text-shadow: 0 3px 5px rgba(0, 0, 0, .4); }
+
+#room-chess .chess-cta { display: flex; justify-content: center; align-items: center; min-height: 44px; }
+#room-chess .chess-cta[hidden] { display: none; }
+#room-chess .chess-wait { background: rgba(16, 12, 10, .72); border-radius: 999px; padding: 8px 16px; }
+
+/* Cột bên */
+#room-chess .chess-seat {
+  display: flex; align-items: center; gap: 12px; padding: 10px 12px; background: var(--surface);
+  border-radius: var(--radius-sm); margin-bottom: 8px; border: 2px solid transparent;
+}
+#room-chess .chess-seat.active { border-color: var(--primary); box-shadow: 0 0 16px rgba(255, 138, 76, .35); }
+#room-chess .chess-mark { font-size: 30px; width: 36px; text-align: center; font-family: "Segoe UI Symbol", "DejaVu Sans", serif; }
+#room-chess .chess-mark.white { color: #fffaf0; text-shadow: 1px 1px 0 #2a1a10, -1px -1px 0 #2a1a10, 0 3px 4px rgba(0, 0, 0, .5); }
+#room-chess .chess-mark.black { color: #1d1612; text-shadow: 0 0 2px #f4e6cf, 0 3px 4px rgba(0, 0, 0, .5); }
+#room-chess .chess-seat-info { display: flex; flex-direction: column; min-width: 0; flex: 1; }
+#room-chess .chess-seat-info b { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+#room-chess .chess-seat-info small { color: var(--muted); }
+#room-chess .chess-offer { padding: 10px 12px; border-radius: var(--radius-sm); background: rgba(255, 209, 102, .14); border: 1px solid rgba(255, 209, 102, .4); margin-bottom: 8px; }
+#room-chess .chess-offer[hidden] { display: none; }
+#room-chess .chess-offer-row { display: flex; gap: 8px; margin-top: 8px; }
+#room-chess .chess-actions { display: flex; flex-wrap: wrap; gap: 8px; margin: 12px 0; }
+#room-chess .chess-moves {
+  list-style: none; counter-reset: mv; margin: 0 0 10px; padding: 6px 8px; max-height: 190px; overflow-y: auto;
+  background: var(--surface); border-radius: var(--radius-sm); font-variant-numeric: tabular-nums; font-size: 14px;
+  display: grid; grid-template-columns: 1fr 1fr; gap: 2px 10px;
+}
+#room-chess .chess-moves li { counter-increment: mv; display: grid; grid-template-columns: 30px 1fr 1fr; gap: 4px; }
+#room-chess .chess-moves li.muted { grid-column: 1 / -1; display: block; }
+#room-chess .chess-moves li:not(.muted)::before { content: counter(mv) '.'; color: var(--muted); }
+#room-chess .chess-moves .cur { background: rgba(255, 138, 76, .3); border-radius: 4px; padding: 0 3px; }
+
+@media (max-width: 700px) {
+  #room-chess .game-main { padding: 6px; gap: 6px; }
+  #room-chess .chess-wrap { --bs: min(94vw, 52vh); padding: 5px; gap: 3px; }
+  #room-chess .chess-status { font-size: 14px; padding: 5px 14px; }
+  #room-chess .chess-bar { min-height: 24px; }
+  #room-chess .chess-clock { font-size: 14px; min-width: 54px; padding: 2px 6px; }
+  #room-chess .chess-promo-pc { width: 50px; height: 50px; font-size: 38px; }
+}

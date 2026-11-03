@@ -172,6 +172,26 @@ export class WorldView {
       this.signs.push({ el: this.labels.addSign(`${b.icon} ${b.name}`), pos: new THREE.Vector3(b.cx + b.dir.x * (b.d / 2 + 0.2), 4.1, b.cz + b.dir.z * (b.d / 2 + 0.2)) });
     }
 
+    // 🕹️ 2 máy game thùng hai bên cửa Khu Trò Chơi (màn hình phát sáng, nhìn xa đã nhận ra)
+    const hub = BUILDINGS.find((b) => b.hub);
+    if (hub) {
+      const body = mat('#3b1f6e', { roughness: 0.6 }), trim = mat('#ffd166', { roughness: 0.4 });
+      const screen = new THREE.MeshStandardMaterial({ color: '#0d1b2a', emissive: '#38d9ff', emissiveIntensity: 1.1 });
+      for (const side of [-1, 1]) {
+        const g = new THREE.Group();
+        const box = new THREE.Mesh(new THREE.BoxGeometry(0.7, 1.6, 0.6), body); box.position.y = 0.8;
+        const scr = new THREE.Mesh(new THREE.PlaneGeometry(0.5, 0.4), screen); scr.position.set(0, 1.2, 0.301);
+        const pad = new THREE.Mesh(new THREE.BoxGeometry(0.66, 0.08, 0.3), trim); pad.position.set(0, 0.86, 0.36); pad.rotation.x = 0.3;
+        const top = new THREE.Mesh(new THREE.BoxGeometry(0.74, 0.18, 0.64), trim); top.position.y = 1.66;
+        for (const m of [box, pad, top]) { m.castShadow = true; m.receiveShadow = true; }
+        g.add(box, scr, pad, top);
+        const x = hub.door.x + side * 2.2, z = hub.door.z + 0.35;
+        g.position.set(x, 0, z); g.rotation.y = hub.rot; // mặt máy cùng hướng với cửa
+        s.add(g);
+        this.circles.push({ x, z, r: 0.45 });
+      }
+    }
+
     // Đài phun nước
     const f = (this.fountain = fountain());
     f.position.set(FOUNTAIN.x / PX, 0, FOUNTAIN.y / PX);

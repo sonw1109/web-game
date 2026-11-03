@@ -122,9 +122,13 @@ test('dữ liệu rác vào MỌI sự kiện không làm sập server', async (
     'fish:cast', 'fish:reel', 'fish:stop', 'fish:book', 'weather:sync', 'wheel:spin', 'wheel:sync', 'bot:add', 'bot:remove',
     'cinema:add', 'cinema:play', 'cinema:pause', 'cinema:seek', 'cinema:next', 'cinema:sync', 'caro:sit', 'caro:move', 'caro:reset', 'caro:leave',
     'draw:start', 'draw:stroke', 'draw:clear', 'draw:guess', 'quiz:start', 'quiz:answer', 'typing:start', 'typing:progress', 'typing:join',
-    'baucua:bet', 'baucua:roll', 'baucua:clear', 'baucua:grant', 'baucua:grantAll', 'gallery:list', 'gallery:delete'];
+    'baucua:bet', 'baucua:roll', 'baucua:clear', 'baucua:grant', 'baucua:grantAll', 'gallery:list', 'gallery:delete',
+    // 🕹️ Khu Trò Chơi
+    'arcade:top', 'chess:sync', 'chess:sit', 'chess:stand', 'chess:move', 'chess:surrender', 'chess:offerDraw', 'chess:acceptDraw', 'chess:declineDraw', 'chess:rematch', 'chess:swap',
+    'sudoku:sync', 'sudoku:fill', 'sudoku:new', 'mines:sync', 'mines:open', 'mines:flag', 'mines:new', 'g2048:sync', 'g2048:new', 'g2048:move',
+    'riddle:sync', 'riddle:start', 'riddle:answer', 'memory:sync', 'memory:join', 'memory:leave', 'memory:start', 'memory:flip', 'rps:sync', 'rps:pick', 'rps:watch'];
   const junk = [undefined, null, 0, -1, 1e308, NaN, '', 'x'.repeat(5000), [], [1, 2], {}, { x: 'a', y: {}, id: [] }, { __proto__: { a: 1 } }, true];
-  for (const room of ['lobby', 'cinema', 'caro', 'draw', 'quiz', 'typing', 'baucua', 'gallery']) {
+  for (const room of ['lobby', 'cinema', 'caro', 'draw', 'quiz', 'typing', 'baucua', 'gallery', 'chess', 'sudoku', 'mines', 'g2048', 'riddle', 'memory', 'rps']) {
     A.s.emit('world:setRoom', room);
     for (const ev of events) for (const j of junk) { A.s.emit(ev, j); A.s.emit(ev, j, j); A.s.emit(ev, j, () => {}); }
     await wait(60);
@@ -200,4 +204,36 @@ test('Phòng Tranh: nhiều người cùng treo nhiều ảnh, không chặn l�
   // người chưa online thì không treo được
   const ghost = await fetch(`${URL}/api/gallery/upload`, { method: 'POST', body: PNG, headers: { 'x-password': 'pw', 'x-socket-id': 'khong-ton-tai', 'content-type': 'application/octet-stream' } });
   assert.equal(ghost.status, 403);
+});
+
+test('Khu Trò Chơi: 2 người đánh cờ vua tới chiếu hết, Bảng Vàng ghi điểm; mìn/đáp án không bao giờ lộ', async () => {
+  const W = await join('Trắng'), B = await join('Đen');
+  for (const u of [W, B]) u.s.emit('world:setRoom', 'chess');
+  await wait(100);
+  W.s.emit('chess:sit', 'w'); B.s.emit('chess:sit', 'b');
+  await wait(100);
+  const sq = (n) => (8 - +n[1]) * 8 + n.charCodeAt(0) - 97; // 'e2' → chỉ số 0..63 (0 = a8)
+  // Scholar's mate (đủ 7 nửa nước để được tính điểm)
+  for (const [u, f, t] of [[W, 'e2', 'e4'], [B, 'e7', 'e5'], [W, 'f1', 'c4'], [B, 'b8', 'c6'], [W, 'd1', 'h5'], [B, 'g8', 'f6'], [W, 'h5', 'f7']]) {
+    const r = await new Promise((res) => u.s.emit('chess:move', { from: sq(f), to: sq(t) }, res));
+    assert.ok(r?.ok, `${f}-${t} bị từ chối`);
+  }
+  const state = await new Promise((res) => { W.s.once('chess:state', res); W.s.emit('chess:sync'); });
+  assert.equal(state.status, 'over');
+  const top = await new Promise((res) => W.s.emit('arcade:top', 'chess', res));
+  assert.ok(top.top.some((r) => r.name === 'Trắng' && r.wins >= 1), JSON.stringify(top));
+
+  // Dò mìn: mở 1 ô → view không chứa vị trí mìn
+  W.s.emit('world:setRoom', 'mines');
+  await wait(80);
+  const ms = await new Promise((res) => { W.s.once('mines:state', res); W.s.emit('mines:open', 0); });
+  assert.doesNotMatch(JSON.stringify(ms), /"mine"|mines":\[/i);
+  // Đố mẹo: trạng thái lúc đang hỏi không có đáp án
+  B.s.emit('world:setRoom', 'riddle');
+  await wait(80);
+  B.s.emit('riddle:start');
+  const rs = await new Promise((res) => { const f = (s) => { if (s.phase === 'ask') { B.s.off('riddle:state', f); res(s); } }; B.s.on('riddle:state', f); B.s.emit('riddle:sync'); setTimeout(() => res(null), 3000); });
+  assert.ok(rs, 'không vào được pha hỏi');
+  assert.equal(rs.answer, null);
+  assert.doesNotMatch(JSON.stringify(rs), /"a":\[/);
 });

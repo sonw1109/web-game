@@ -6,20 +6,6 @@ import { showCharacterCreate } from './ui/characterCreate.js';
 import { initChat } from './ui/chat.js';
 import { Engine } from './three/engine.js';
 import { WorldView } from './three/worldView.js';
-import { CinemaView } from './three/rooms/cinema3d.js';
-import { CaroView } from './three/rooms/caro3d.js';
-import { QuizView } from './three/rooms/quiz3d.js';
-import { DrawView } from './three/rooms/draw3d.js';
-import { GalleryView } from './three/rooms/gallery3d.js';
-import { TypingView } from './three/rooms/typing3d.js';
-import { BauCuaView } from './three/rooms/baucua3d.js';
-import { createCinemaRoom } from './rooms/cinema.js';
-import { createCaroRoom } from './rooms/caro.js';
-import { createDrawRoom } from './rooms/drawGuess.js';
-import { createQuizRoom } from './rooms/quiz.js';
-import { createGalleryRoom } from './rooms/gallery.js';
-import { createTypingRoom } from './rooms/typing.js';
-import { createBauCuaRoom } from './rooms/baucua.js';
 import { rtc } from './net/rtc.js';
 import { initVideoGrid } from './ui/videoGrid.js';
 import { sound } from './ui/sound.js';
@@ -31,6 +17,8 @@ import { initShrinePanel } from './ui/shrinePanel.js';
 import { initEmotePanel } from './ui/emotePanel.js';
 import { Q, PRESETS, isTouch, saveChoice, savedChoice } from './three/quality.js';
 import { BUILDINGS } from './game/map.js';
+import { ARCADE_GAMES, ARCADE_ID, gameById } from './game/arcade.js';
+import { initArcadeHub } from './ui/arcadeHub.js';
 
 const $ = (id) => document.getElementById(id);
 const EMOJIS = ['😂', '❤️', '👍', '😮', '😢', '🔥'];
@@ -275,21 +263,53 @@ function addSheetHandle(id) {
   side.prepend(h);
 }
 
+/**
+ * Mỗi phòng = giao diện (ui) + cảnh 3D (view), đều TẢI KHI CẦN: trang đầu chỉ tải sảnh,
+ * vào phòng nào mới tải code phòng đó (đi tới gần cửa là tải trước cho nhanh).
+ */
+const ROOM_DEFS = {
+  cinema: { ui: () => import('./rooms/cinema.js').then((m) => m.createCinemaRoom()), view: () => import('./three/rooms/cinema3d.js').then((m) => m.CinemaView) },
+  caro: { ui: () => import('./rooms/caro.js').then((m) => m.createCaroRoom()), view: () => import('./three/rooms/caro3d.js').then((m) => m.CaroView) },
+  draw: { ui: () => import('./rooms/drawGuess.js').then((m) => m.createDrawRoom()), view: () => import('./three/rooms/draw3d.js').then((m) => m.DrawView) },
+  quiz: { ui: () => import('./rooms/quiz.js').then((m) => m.createQuizRoom()), view: () => import('./three/rooms/quiz3d.js').then((m) => m.QuizView) },
+  gallery: { ui: () => import('./rooms/gallery.js').then((m) => m.createGalleryRoom()), view: () => import('./three/rooms/gallery3d.js').then((m) => m.GalleryView) },
+  typing: { ui: () => import('./rooms/typing.js').then((m) => m.createTypingRoom()), view: () => import('./three/rooms/typing3d.js').then((m) => m.TypingView) },
+  baucua: { ui: () => import('./rooms/baucua.js').then((m) => m.createBauCuaRoom()), view: () => import('./three/rooms/baucua3d.js').then((m) => m.BauCuaView) },
+};
+// 🕹️ Các phòng trong Khu Trò Chơi dùng chung 1 cảnh 3D
+const arcadeUI = import.meta.glob('./rooms/arcade/*.js');
+for (const g of ARCADE_GAMES) {
+  const load = arcadeUI[`./rooms/arcade/${g.id}.js`];
+  if (!load) continue;
+  ROOM_DEFS[g.id] = { ui: () => load().then((m) => m.createRoom()), view: () => import('./three/rooms/arcade3d.js').then((m) => m.ArcadeView), arcade: true };
+}
+
 function setupRooms() {
-  const rooms = {
-    cinema: createCinemaRoom(),
-    caro: createCaroRoom(),
-    draw: createDrawRoom(),
-    quiz: createQuizRoom(),
-    gallery: createGalleryRoom(),
-    typing: createTypingRoom(),
-    baucua: createBauCuaRoom(),
-  };
-  // Cảnh 3D của từng phòng: dựng lần đầu khi vào, giữ lại cho lần sau
-  const VIEW = { cinema: CinemaView, caro: CaroView, draw: DrawView, quiz: QuizView, gallery: GalleryView, typing: TypingView, baucua: BauCuaView };
+  const rooms = {};   // id -> giao diện đã tạo
+  const VIEW = {};    // id -> lớp cảnh 3D đã tải
+  const loading = {}; // id -> promise đang tải
+  /** Tải (1 lần) giao diện + cảnh 3D của phòng. */
+  const ensureRoom = (id) => (loading[id] ||= (async () => {
+    const def = ROOM_DEFS[id];
+    if (!document.getElementById(`room-${id}`)) { // phòng mới: tự thêm khung <section>
+      const sec = document.createElement('section');
+      sec.id = `room-${id}`; sec.className = 'room'; sec.hidden = true;
+      document.getElementById('room-baucua').after(sec);
+    }
+    const [ui, View] = await Promise.all([def.ui(), def.view()]);
+    rooms[id] = ui; VIEW[id] = View;
+  })().catch((e) => { delete loading[id]; throw e; }));
+
+  // Đi tới gần cửa → tải trước phòng đó (Khu Trò Chơi: tải trước cảnh 3D chung)
+  store.on('near-door', (b) => {
+    if (!b) return;
+    if (b.id === ARCADE_ID) import('./three/rooms/arcade3d.js').catch(() => {});
+    else if (ROOM_DEFS[b.id]) ensureRoom(b.id).catch(() => {});
+  });
+  const hub = initArcadeHub({ onPick: (id) => store.emit('enter-room', id) });
 
   // 🤖 Bot chỉ vào khi được mời
-  const BOT_ROOMS = ['caro', 'draw', 'quiz', 'typing', 'baucua'];
+  const BOT_ROOMS = ['caro', 'draw', 'quiz', 'typing', 'baucua', ...ARCADE_GAMES.filter((g) => g.bot).map((g) => g.id)];
   const botBtn = $('btn-bot');
   const paintBot = () => {
     const room = store.room;
@@ -319,12 +339,20 @@ function setupRooms() {
     document.querySelectorAll('.room .open').forEach((el) => el.classList.remove('open'));
     $('room-bar').hidden = true;
     $('hud').hidden = false;
-    world.placeAtDoor(id);
+    world.placeAtDoor(gameById(id) ? ARCADE_ID : id); // rời game nhỏ → đứng trước cửa Khu Trò Chơi
     sound.play('leave');
   };
 
-  store.on('enter-room', (id) => {
-    if (!rooms[id] || store.room !== 'lobby') return;
+  let entering = null;
+  store.on('enter-room', async (id) => {
+    if (id === ARCADE_ID) { if (store.room === 'lobby') hub.open(); return; }
+    if (!ROOM_DEFS[id] || store.room !== 'lobby' || entering) return;
+    entering = id;
+    const slow = setTimeout(() => toast('⏳ Đang tải phòng…', 1500), 350);
+    try { await ensureRoom(id); }
+    catch (e) { console.warn('[room]', e); toast('Không tải được phòng – kiểm tra mạng rồi thử lại nhé'); return; }
+    finally { clearTimeout(slow); entering = null; }
+    if (store.room !== 'lobby') return;
     store.room = id;
     socket.emit('world:setRoom', id);
     $('hud').hidden = true;
@@ -334,7 +362,7 @@ function setupRooms() {
     document.body.classList.add('in-room');
     document.body.dataset.room = id;
     addSheetHandle(id);
-    views[id] ||= new VIEW[id](engine);
+    views[id] ||= new VIEW[id](engine, id);
     rooms[id].open(views[id]);
     engine.setView(views[id]);
     paintBot();

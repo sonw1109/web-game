@@ -16,6 +16,15 @@ import { registerFeatures } from './features.js';
 import { registerInteract } from './interact.js';
 import { registerShrine } from './shrine.js';
 import { registerWheel } from './wheel.js';
+import { registerArcade } from './arcade.js';
+import { serveStatic } from './static.js';
+import * as chess from './rooms/chess.js';
+import * as sudoku from './rooms/sudoku.js';
+import * as mines from './rooms/mines.js';
+import * as riddle from './rooms/riddle.js';
+import * as memory from './rooms/memory.js';
+import * as rps from './rooms/rps.js';
+import * as g2048 from './rooms/g2048.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PORT = process.env.PORT || 3000;
@@ -28,7 +37,7 @@ const io = new Server(httpServer, {
   cors: isProd ? undefined : { origin: true },
   maxHttpBufferSize: 1e6,
 });
-io.setMaxListeners(40); // mỗi tính năng đăng ký 1 listener 'connection' riêng
+io.setMaxListeners(60); // mỗi tính năng đăng ký 1 listener 'connection' riêng
 
 app.get('/healthz', (_req, res) => res.send('ok'));
 
@@ -64,7 +73,14 @@ const draw = registerDrawGuess(io, world);
 const quiz = registerQuiz(io, world);
 const typing = registerTyping(io, world);
 const baucua = registerBauCua(io, world);
-registerBots(world, { caro, draw, quiz, typing, baucua });
+// 🕹️ Khu Trò Chơi: mỗi game tự đăng ký sự kiện + bot của mình, điểm dồn về Bảng Vàng chung
+const arcade = registerArcade(io, world);
+const arcadeBots = {};
+for (const [id, mod] of Object.entries({ chess, sudoku, mines, riddle, memory, rps, g2048 })) {
+  const r = mod.register(io, world, arcade);
+  if (r?.bot) arcadeBots[id] = r.bot;
+}
+registerBots(world, { caro, draw, quiz, typing, baucua }, arcadeBots);
 registerGallery(app, io, world, PASSWORD);
 // hồ câu: phải khớp LAKE trong client/src/game/map.js
 registerFeatures(io, world, { lake: { x: 44, y: 20, w: 14, h: 9 } });
@@ -81,11 +97,7 @@ app.use((err, _req, res, next) => {
 });
 
 // Phục vụ web đã build – đặt SAU các route /api để không nuốt mất chúng
-if (isProd) {
-  const dist = path.join(__dirname, '..', 'client', 'dist');
-  app.use(express.static(dist));
-  app.get('/{*splat}', (_req, res) => res.sendFile(path.join(dist, 'index.html')));
-}
+if (isProd) serveStatic(app, path.join(__dirname, '..', 'client', 'dist'));
 
 httpServer.listen(PORT, () => {
   console.log(`🏮 Hội Quán server chạy tại http://localhost:${PORT}`);

@@ -16,8 +16,17 @@ const WRONG_GUESSES = ['là gì ta 🤔', 'khó quá', 'hmm…', 'vẽ đẹp gh
 const rnd = (a, b) => a + Math.random() * (b - a);
 const pick = (a) => a[Math.floor(Math.random() * a.length)];
 
-export function registerBots(world, { caro, draw, quiz, typing, baucua }) {
+/**
+ * extra: bot của các game trong Khu Trò Chơi – { [room]: { name, appearance, tick(botId, helpers) } }
+ * (mỗi game tự khai báo bot của mình, xem server/rooms/chess.js…)
+ */
+export function registerBots(world, { caro, draw, quiz, typing, baucua }, extra = {}) {
   if (process.env.BOTS === 'off') return;
+  for (const [room, b] of Object.entries(extra)) {
+    if (!b?.tick) continue;
+    if (!GAME_ROOMS.includes(room)) GAME_ROOMS.push(room);
+    BOT[room] = { name: b.name, appearance: b.appearance };
+  }
   const botId = (room) => `bot-${room}`;
   const humans = (room) => world.inRoom(room).filter((p) => !p.bot);
 
@@ -30,6 +39,8 @@ export function registerBots(world, { caro, draw, quiz, typing, baucua }) {
   const cancelPrefix = (prefix) => {
     for (const [k, t] of pending) if (k.startsWith(prefix)) { clearTimeout(t); pending.delete(k); }
   };
+
+  const helpers = { schedule, humans, rnd, pick, say: (id, text) => world.say(world.get(id), text) };
 
   // ---------- Mời / mời ra ----------
   function addBot(room) {
@@ -182,5 +193,10 @@ export function registerBots(world, { caro, draw, quiz, typing, baucua }) {
 
   setInterval(() => {
     try { tickCaro(); tickDraw(); tickQuiz(); tickTyping(); tickBauCua(); } catch (e) { console.error('[bots]', e); }
+    for (const [room, b] of Object.entries(extra)) {
+      const id = botId(room);
+      if (!b?.tick || !world.get(id)) continue;
+      try { b.tick(id, helpers); } catch (e) { console.error(`[bots:${room}]`, e); }
+    }
   }, 400);
 }

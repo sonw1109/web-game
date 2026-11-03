@@ -1,0 +1,66 @@
+/* 🧠 Đố Mẹo */
+#room-riddle .game-main { justify-content: center; }
+#room-riddle .rd-card {
+  width: min(640px, 94vw); display: flex; flex-direction: column; gap: 12px; padding: 18px 20px 20px;
+  border-radius: 24px; color: #fff;
+  background: linear-gradient(160deg, rgba(110, 50, 150, .88), rgba(32, 16, 52, .92));
+  border: 1px solid rgba(255, 255, 255, .16);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .25), inset 0 -4px 0 rgba(0, 0, 0, .3), 0 6px 0 #2a123b, 0 22px 50px rgba(0, 0, 0, .55);
+  backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+  max-height: 100%; overflow-y: auto;
+}
+#room-riddle .rd-card.shake { animation: rd-shake .4s ease; }
+@keyframes rd-shake { 20%, 60% { transform: translateX(-8px); } 40%, 80% { transform: translateX(8px); } }
+#room-riddle .rd-top { display: flex; justify-content: space-between; align-items: center; font-weight: 700; }
+#room-riddle .rd-round {
+  font-family: var(--font-pixel); font-size: 18px; padding: 4px 14px; border-radius: 99px;
+  background: linear-gradient(#ffd36b, #e7a83a); color: #3b1d00; box-shadow: 0 3px 0 #9a6420;
+}
+#room-riddle .rd-sec { font-variant-numeric: tabular-nums; color: #ffe9b0; }
+#room-riddle .timer-bar { max-width: none; }
+#room-riddle .rd-q {
+  font-family: var(--font-pixel); font-size: clamp(20px, 4.6vw, 30px); line-height: 1.35; text-align: center;
+  font-weight: 700; padding: 10px 4px; text-shadow: 0 2px 0 rgba(0, 0, 0, .35); min-height: 3em;
+  display: flex; align-items: center; justify-content: center;
+}
+#room-riddle .rd-q.big { font-size: clamp(24px, 6vw, 36px); color: #ffe08a; }
+#room-riddle .rd-hint, #room-riddle .rd-mask, #room-riddle .rd-answer {
+  text-align: center; border-radius: 14px; padding: 8px 12px; animation: pop .25s ease-out;
+}
+#room-riddle .rd-hint { background: rgba(255, 211, 107, .16); color: #ffe39b; border: 1px dashed rgba(255, 211, 107, .5); }
+#room-riddle .rd-mask { font-family: ui-monospace, Menlo, monospace; font-size: 20px; letter-spacing: 1px; color: #fff; background: rgba(0, 0, 0, .3); word-break: break-word; }
+#room-riddle .rd-answer {
+  font-family: var(--font-pixel); font-size: 24px; font-weight: 700; color: #0f3a1f;
+  background: linear-gradient(#8ef0ae, #4cc777); box-shadow: 0 4px 0 #2a7a46;
+}
+#room-riddle .rd-form { display: flex; gap: 8px; }
+#room-riddle .rd-input {
+  flex: 1; min-width: 0; font-size: 17px; padding: 12px 14px; border-radius: 14px; color: #fff;
+  background: rgba(0, 0, 0, .35); border: 2px solid rgba(255, 255, 255, .2); outline: none;
+}
+#room-riddle .rd-input:focus { border-color: #ffd36b; }
+#room-riddle .rd-input:disabled { opacity: .6; }
+#room-riddle .rd-feedback { min-height: 1.3em; text-align: center; font-weight: 700; }
+#room-riddle .rd-feedback.ok { color: #8ef0ae; }
+#room-riddle .rd-feedback.bad { color: #ff9a9a; }
+#room-riddle .rd-solved { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; }
+#room-riddle .rd-chip {
+  font-size: 13px; padding: 3px 10px; border-radius: 99px; background: rgba(76, 199, 119, .25); border: 1px solid rgba(142, 240, 174, .5);
+  animation: pop .25s ease-out;
+}
+#room-riddle .rd-chip.me { background: rgba(255, 211, 107, .3); border-color: #ffd36b; }
+#room-riddle .rd-cta { display: flex; flex-direction: column; align-items: center; gap: 6px; }
+#room-riddle .rd-cta:empty { display: none; }
+#room-riddle .rd-scores { list-style: none; padding: 0; margin: 8px 0; display: flex; flex-direction: column; gap: 6px; }
+#room-riddle .rd-scores li {
+  display: flex; justify-content: space-between; gap: 8px; padding: 8px 12px; border-radius: 12px;
+  background: rgba(255, 255, 255, .06); border: 1px solid rgba(255, 255, 255, .1);
+}
+#room-riddle .rd-scores li span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+#room-riddle .rd-scores li.me { border-color: #ffd36b; background: rgba(255, 211, 107, .12); }
+#room-riddle .rd-actions { margin: 10px 0; }
+@media (max-width: 700px) {
+  #room-riddle .rd-card { padding: 12px 12px 14px; gap: 8px; border-radius: 18px; }
+  #room-riddle .rd-q { min-height: 2.4em; padding: 4px; }
+  #room-riddle .rd-mask { font-size: 16px; }
+}

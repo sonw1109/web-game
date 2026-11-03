@@ -1,0 +1,63 @@
+/* 🔢 Sudoku Hợp Sức */
+#room-sudoku .game-main { justify-content: flex-start; padding-top: 14px; }
+#room-sudoku .sdk-top {
+  display: flex; gap: 14px; align-items: center; justify-content: space-between;
+  width: min(92vw, 62vh, 540px); padding: 6px 12px; border-radius: 10px;
+  background: rgba(12, 14, 28, 0.78); backdrop-filter: blur(8px); font-weight: 600;
+}
+#room-sudoku .sdk-clock { font-variant-numeric: tabular-nums; color: var(--muted); }
+#room-sudoku .sdk-wrap {
+  display: flex; flex-direction: column; align-items: center; gap: 10px;
+  padding: 10px; border-radius: 16px; background: rgba(12, 14, 28, 0.78); backdrop-filter: blur(8px);
+}
+#room-sudoku .sdk-board {
+  --s: min(92vw - 20px, 62vh, 520px);
+  width: var(--s); height: var(--s);
+  display: grid; grid-template-columns: repeat(9, 1fr); grid-template-rows: repeat(9, 1fr);
+  border: 3px solid #cfd6ff; border-radius: 8px; overflow: hidden; background: #1a1d36;
+}
+#room-sudoku .sdk-cell {
+  border: 0; border-right: 1px solid #ffffff26; border-bottom: 1px solid #ffffff26;
+  background: transparent; color: #eef0ff; padding: 0; min-width: 0; min-height: 0;
+  font-size: calc(var(--s) / 9 * 0.56); font-weight: 600; cursor: pointer; position: relative;
+  display: flex; align-items: center; justify-content: center; transition: background 0.12s;
+}
+#room-sudoku .sdk-cell:nth-child(9n) { border-right: 0; }
+#room-sudoku .sdk-cell:nth-child(n + 73) { border-bottom: 0; }
+#room-sudoku .sdk-cell.bR { border-right: 3px solid #cfd6ff; }
+#room-sudoku .sdk-cell.bB { border-bottom: 3px solid #cfd6ff; }
+#room-sudoku .sdk-cell.given { color: #ffffff; font-weight: 800; background: #ffffff0a; }
+#room-sudoku .sdk-cell.peer { background: #7c6cff22; }
+#room-sudoku .sdk-cell.same { background: #7c6cff55; }
+#room-sudoku .sdk-cell.sel { background: #ff8a4c66; box-shadow: inset 0 0 0 2px #ff8a4c; }
+#room-sudoku .sdk-cell.wrong { color: #ff5f6d !important; background: #ff5f6d33; animation: sdk-shake 0.35s; }
+#room-sudoku .sdk-cell:hover:not(.sel) { background: #ffffff1a; }
+#room-sudoku .sdk-notes {
+  position: absolute; inset: 2px; display: grid; grid-template-columns: repeat(3, 1fr);
+  font-size: calc(var(--s) / 9 * 0.24); font-weight: 500; color: #b7bce0; line-height: 1;
+}
+#room-sudoku .sdk-notes span { display: flex; align-items: center; justify-content: center; }
+#room-sudoku .sdk-pad {
+  width: min(92vw - 20px, 62vh, 520px);
+  display: grid; grid-template-columns: repeat(11, 1fr); gap: 4px;
+}
+#room-sudoku .sdk-key { padding: 0; min-height: 40px; font-size: 18px; font-weight: 700; }
+#room-sudoku .sdk-key:disabled { opacity: 0.3; }
+#room-sudoku .sdk-score { list-style: none; margin: 8px 0 16px; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+#room-sudoku .sdk-score li {
+  display: flex; align-items: center; gap: 8px; padding: 6px 10px; border-radius: 9px; background: var(--surface);
+}
+#room-sudoku .sdk-score li.win { box-shadow: inset 0 0 0 2px #ffd24c; }
+#room-sudoku .sdk-score i { width: 12px; height: 12px; border-radius: 50%; flex: none; }
+#room-sudoku .sdk-score span { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+#room-sudoku .sdk-new { display: flex; gap: 6px; flex-wrap: wrap; margin: 8px 0 4px; }
+@keyframes sdk-shake { 0%, 100% { transform: none; } 25% { transform: translateX(-3px); } 75% { transform: translateX(3px); } }
+
+@media (max-width: 700px) {
+  #room-sudoku .game-main { padding-top: 6px; }
+  #room-sudoku .sdk-wrap { padding: 6px; gap: 6px; }
+  #room-sudoku .sdk-board { --s: min(100vw - 28px, 100vh - 300px); }
+  #room-sudoku .sdk-top, #room-sudoku .sdk-pad { width: min(100vw - 28px, 520px); }
+  #room-sudoku .sdk-pad { grid-template-columns: repeat(6, 1fr); }
+  #room-sudoku .sdk-key { min-height: 36px; }
+}

@@ -38,6 +38,16 @@ export const BUILDINGS = DEFS.map((b, i) => {
   const k = HOUSE_D / 2 + 0.8;
   return { ...b, cx, cz, rot, w: HOUSE_W, d: HOUSE_D, dir, door: { x: cx + dir.x * k, z: cz + dir.z * k } };
 });
+// 🕹️ Khu Trò Chơi: tòa nhà lớn ở góc đông nam, cửa quay lên đường dưới hồ câu (hướng bắc).
+// Bên trong là sảnh chọn game (Cờ Vua, Sudoku, Dò Mìn…) – xem game/arcade.js.
+export const ARCADE = { cx: 52.5, cz: 38.6, w: 10, d: 5.6 };
+{
+  const dir = { x: 0, z: -1 }, k = ARCADE.d / 2 + 0.8;
+  BUILDINGS.push({
+    id: 'arcade', name: 'Khu Trò Chơi', icon: '🕹️', roof: '#6c3fc4', wall: '#fff0f6', hub: true,
+    ...ARCADE, rot: Math.atan2(dir.x, dir.z), dir, door: { x: ARCADE.cx, z: ARCADE.cz - k },
+  });
+}
 
 /** Điểm (x, z) có nằm trong nhà (hình chữ nhật xoay, nới thêm margin) không. */
 export function inHouse(b, x, z, margin = 0) {
@@ -104,6 +114,8 @@ function buildGround() {
   fill(POND.x, POND.y, POND.w, POND.h, 3);
   fill(LAKE.x, LAKE.y, LAKE.w, LAKE.h, 3);
   fill(DOCK.x, LAKE.y + LAKE.h, DOCK.w, 30 - LAKE.y - LAKE.h, 1); // lối từ đường dưới ra bến
+  fill(Math.floor(ARCADE.cx) - 1, 32, 2, 3, 1);                     // lối từ đường dưới hồ xuống Khu Trò Chơi
+  fill(Math.floor(ARCADE.cx) - 4, 33, 8, 2, 2);                     // sân đá trước cửa
   return g;
 }
 export const GROUND = buildGround();

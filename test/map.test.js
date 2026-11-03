@@ -52,7 +52,7 @@ const reachable = (x, z) => {
 
 test('điểm xuất hiện đi lại được', () => assert.ok(walkable(SPAWN.x / TILE, SPAWN.y / TILE)));
 
-test('7 ngôi nhà không dính nhau (cách nhau ≥ 2.5 m)', () => {
+test('các tòa nhà không dính nhau (cách nhau ≥ 2.5 m)', () => {
   /** Các điểm dọc 4 cạnh của nhà b, nới ra m mét (đổi từ hệ tọa độ nhà sang thế giới). */
   const perimeter = (b, m) => {
     const hw = b.w / 2 + m, hd = b.d / 2 + m, c = Math.cos(b.rot), s = Math.sin(b.rot), pts = [];
@@ -70,11 +70,12 @@ test('7 ngôi nhà không dính nhau (cách nhau ≥ 2.5 m)', () => {
 
 test('mọi cửa nhà quay vào quảng trường và đi tới được', () => {
   for (const b of BUILDINGS) {
+    const stand = { x: b.door.x + b.dir.x * 0.6, z: b.door.z + b.dir.z * 0.6 };
+    assert.ok(reachable(stand.x, stand.z), `không tới được cửa ${b.id}`);
+    if (b.hub) continue; // Khu Trò Chơi nằm riêng ở góc đông nam, không thuộc vòng quảng trường
     const toCenter = Math.atan2(PLAZA.x - b.cx, PLAZA.z - b.cz);
     assert.ok(Math.abs(Math.atan2(Math.sin(toCenter - b.rot), Math.cos(toCenter - b.rot))) < 0.01, `${b.id} không quay vào giữa`);
     assert.ok(Math.hypot(b.door.x - PLAZA.x, b.door.z - PLAZA.z) < PLAZA.r, `cửa ${b.id} nằm ngoài sân`);
-    const stand = { x: b.door.x + b.dir.x * 0.6, z: b.door.z + b.dir.z * 0.6 };
-    assert.ok(reachable(stand.x, stand.z), `không tới được cửa ${b.id}`);
   }
 });
 

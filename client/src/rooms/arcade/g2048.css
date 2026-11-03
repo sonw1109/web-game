@@ -1,0 +1,67 @@
+/* 🔷 2048 */
+#room-g2048 .game-main { justify-content: flex-start; padding-top: 18px; }
+#room-g2048 .g2-top {
+  --s: min(90vw, 62vh, 460px);
+  width: var(--s); display: flex; gap: 8px; align-items: stretch;
+}
+#room-g2048 .g2-box {
+  flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center;
+  padding: 4px 10px; border-radius: 10px; background: rgba(60, 50, 40, 0.9); color: #f9f6f2;
+}
+#room-g2048 .g2-box small { font-size: 11px; letter-spacing: 1px; color: #eee4da; opacity: 0.8; }
+#room-g2048 .g2-box b { font-size: 22px; font-variant-numeric: tabular-nums; }
+#room-g2048 .g2-board {
+  --s: min(90vw, 62vh, 460px);
+  --gap: calc(var(--s) * 0.028);
+  --t: calc((var(--s) - var(--gap) * 5) / 4);
+  position: relative; width: var(--s); height: var(--s); border-radius: 14px;
+  background: rgba(187, 173, 160, 0.95); touch-action: none; user-select: none; -webkit-user-select: none;
+  box-shadow: 0 10px 30px #0006;
+}
+#room-g2048 .g2-grid {
+  position: absolute; inset: var(--gap);
+  display: grid; grid-template-columns: repeat(4, 1fr); grid-template-rows: repeat(4, 1fr); gap: var(--gap);
+}
+#room-g2048 .g2-grid div { border-radius: 8px; background: #cdc1b4; }
+#room-g2048 .g2-tiles { position: absolute; inset: 0; }
+#room-g2048 .g2-tile {
+  position: absolute; left: var(--gap); top: var(--gap); width: var(--t); height: var(--t);
+  transform: translate(calc(var(--x) * (var(--t) + var(--gap))), calc(var(--y) * (var(--t) + var(--gap))));
+  transition: transform 0.1s ease-in-out;
+  display: flex; align-items: center; justify-content: center; border-radius: 8px;
+  font-weight: 800; font-size: calc(var(--t) * 0.44); color: #f9f6f2; background: #3c3a32;
+  font-family: var(--font); will-change: transform;
+}
+#room-g2048 .g2-tile.long { font-size: calc(var(--t) * 0.3); }
+#room-g2048 .g2-tile[data-v="2"] { background: #eee4da; color: #776e65; }
+#room-g2048 .g2-tile[data-v="4"] { background: #ede0c8; color: #776e65; }
+#room-g2048 .g2-tile[data-v="8"] { background: #f2b179; }
+#room-g2048 .g2-tile[data-v="16"] { background: #f59563; }
+#room-g2048 .g2-tile[data-v="32"] { background: #f67c5f; }
+#room-g2048 .g2-tile[data-v="64"] { background: #f65e3b; }
+#room-g2048 .g2-tile[data-v="128"] { background: #edcf72; font-size: calc(var(--t) * 0.38); box-shadow: 0 0 14px #f3d77455; }
+#room-g2048 .g2-tile[data-v="256"] { background: #edcc61; font-size: calc(var(--t) * 0.38); box-shadow: 0 0 18px #f3d77477; }
+#room-g2048 .g2-tile[data-v="512"] { background: #edc850; font-size: calc(var(--t) * 0.38); box-shadow: 0 0 22px #f3d77499; }
+#room-g2048 .g2-tile[data-v="1024"] { background: #edc53f; box-shadow: 0 0 26px #f3d774bb; }
+#room-g2048 .g2-tile[data-v="2048"] { background: #edc22e; box-shadow: 0 0 32px #f3d774; }
+#room-g2048 .g2-tile.new { animation: g2-appear 0.16s ease-out; }
+#room-g2048 .g2-tile.pop { animation: g2-pop 0.16s ease-out; }
+#room-g2048 .g2-tile.new, #room-g2048 .g2-tile.pop { z-index: 1; }
+#room-g2048 .g2-over {
+  position: absolute; inset: 0; z-index: 2; border-radius: 14px;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px;
+  background: rgba(238, 228, 218, 0.78); color: #776e65; text-align: center; padding: 16px;
+}
+#room-g2048 .g2-over b { font-size: 22px; }
+#room-g2048 .g2-hint { margin: 0; padding: 2px 10px; border-radius: 8px; background: rgba(12, 14, 28, 0.7); }
+#room-g2048 .g2-list { list-style: none; padding: 0; margin: 8px 0 16px; display: flex; flex-direction: column; gap: 6px; }
+#room-g2048 .g2-list li { display: flex; justify-content: space-between; gap: 8px; padding: 6px 10px; border-radius: 9px; background: var(--surface); }
+#room-g2048 .g2-list span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* animation chồng transform → dùng scale riêng (thuộc tính scale) để không phá vị trí */
+@keyframes g2-appear { from { scale: 0; } to { scale: 1; } }
+@keyframes g2-pop { 0% { scale: 1; } 50% { scale: 1.18; } 100% { scale: 1; } }
+
+@media (max-width: 700px) {
+  #room-g2048 .game-main { padding-top: 8px; }
+  #room-g2048 .g2-top, #room-g2048 .g2-board { --s: min(100vw - 28px, 100vh - 230px, 460px); }
+}
