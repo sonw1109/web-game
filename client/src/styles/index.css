@@ -837,3 +837,24 @@ body.flash::after { content: ''; position: fixed; inset: 0; z-index: 95; backgro
 #room-baucua .scoreboard li { flex-wrap: wrap; }
 .admin-row { display: flex; gap: 4px; width: 100%; justify-content: flex-end; margin-top: 4px; }
 .admin-bar .admin-out { margin-left: auto; color: var(--muted); border-color: var(--border); background: transparent; }
+
+/* ---------- 🎭 Biểu cảm · 🐾 nhãn con vật ---------- */
+.plabel.critter .name { font-size: 11px; font-weight: 500; background: rgba(40, 70, 40, .55); color: #eaffdf; }
+.emoji-bar .emote-more { background: linear-gradient(135deg, rgba(255,140,90,.85), rgba(200,80,160,.85)); }
+#emote-panel {
+  position: absolute; left: 50%; bottom: 76px; transform: translateX(-50%); pointer-events: auto; z-index: 20;
+  background: rgba(20,22,40,.92); border: 1px solid var(--border); border-radius: 16px; padding: 10px 12px; backdrop-filter: var(--blur);
+  animation: pop .18s ease-out; box-shadow: 0 14px 40px rgba(0,0,0,.4);
+}
+#emote-panel > b { display: block; font-size: 13px; margin: 0 0 8px 2px; color: var(--muted); }
+.emote-grid { display: grid; grid-template-columns: repeat(6, 74px); gap: 6px; }
+.emote-grid button {
+  display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 7px 2px 5px; border-radius: 12px; cursor: pointer;
+  background: rgba(255,255,255,.05); border: 1px solid transparent; color: inherit; transition: transform .1s, background .1s;
+}
+.emote-grid button span { font-size: 24px; line-height: 1.1; }
+.emote-grid button small { font-size: 10.5px; color: var(--muted); white-space: nowrap; }
+.emote-grid button:hover { background: rgba(255,255,255,.12); border-color: var(--border); transform: translateY(-2px); }
+body.touch #emote-panel { left: 16px; right: 16px; transform: none; bottom: calc(150px + env(safe-area-inset-bottom)); z-index: 30; }
+body.touch .emote-grid { grid-template-columns: repeat(4, 1fr); }
+body.touch .emote-grid button { padding: 9px 2px 6px; }

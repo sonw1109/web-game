@@ -13,6 +13,7 @@ import { registerGallery } from './rooms/gallery.js';
 import { registerBauCua } from './rooms/baucua.js';
 import { registerTyping } from './rooms/typing.js';
 import { registerFeatures } from './features.js';
+import { registerInteract } from './interact.js';
 import { registerWheel } from './wheel.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -26,6 +27,7 @@ const io = new Server(httpServer, {
   cors: isProd ? undefined : { origin: true },
   maxHttpBufferSize: 1e6,
 });
+io.setMaxListeners(40); // mỗi tính năng đăng ký 1 listener 'connection' riêng
 
 app.get('/healthz', (_req, res) => res.send('ok'));
 
@@ -66,6 +68,7 @@ registerGallery(app, io, world, PASSWORD);
 // hồ câu: phải khớp LAKE trong client/src/game/map.js
 registerFeatures(io, world, { lake: { x: 44, y: 20, w: 14, h: 9 } });
 registerWheel(io, world);
+registerInteract(io, world);
 
 // Lỗi từ middleware (vd. file quá lớn) → trả JSON để client hiện thông báo dễ hiểu
 app.use((err, _req, res, next) => {

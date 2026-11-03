@@ -12,10 +12,13 @@ import { Weather } from './weather.js';
 import { Pet } from './pet.js';
 import { FoodWheel } from './foodWheel.js';
 import { Sky } from './sky.js';
+import { Critters } from './critters.js';
+import { Nature, FRUITS } from './nature.js';
+import { EMOTES } from './expressions.js';
 import { sound } from '../ui/sound.js';
 import { Labels } from '../ui/labels.js';
 import { mat, textures, tree, lamp, bench, house, fountain } from './props.js';
-import { MAP_W, MAP_H, BUILDINGS, SPAWN, FOUNTAIN, POND, GROUND, LAKE, DOCK, GARDEN, GAZEBO, PLAZA, inHouse, treePositions } from '../game/map.js';
+import { MAP_W, MAP_H, BUILDINGS, SPAWN, FOUNTAIN, POND, GROUND, LAKE, DOCK, GARDEN, GAZEBO, PLAZA, BENCHES, SEATS, inHouse, treePositions } from '../game/map.js';
 
 const PX = 16;                 // 1 mét = 16 px phía server
 const SEND_MS = 66;
@@ -184,17 +187,20 @@ export class WorldView {
       const l = lamp(); l.position.set(x, 0, z); s.add(l);
       this.circles.push({ x, z, r: 0.15 });
     }
-    for (const deg of [36, 144, 240]) {
-      const a = (deg * Math.PI) / 180, x = PLAZA.x + Math.cos(a) * 6.8, z = PLAZA.z + Math.sin(a) * 6.8;
-      const b = bench(); b.position.set(x, 0, z); b.rotation.y = Math.atan2(PLAZA.x - x, PLAZA.z - z) + Math.PI; s.add(b);
-      this.circles.push({ x, z, r: 0.7 });
-    }
+    // 🪑 ghế (ngồi được – xem BENCHES/SEATS trong map.js)
+    this.benchMeshes = BENCHES.map((b, i) => {
+      const g = bench(); g.position.set(b.x, b.y, b.z); g.rotation.y = b.ry; g.userData.bench = i; s.add(g);
+      this.obbs.push({ cx: b.x, cz: b.z, rot: b.ry, w: 1.3, d: 0.42 });
+      return g;
+    });
 
     this.buildLake();
     this.buildGarden();
     this.buildPark();
     // Cây (gộp instanced cho nhẹ)
     this.buildTrees(treePositions());
+    this.nature = new Nature(s, this.treeGroups);
+    this.critters = new Critters(s);
     cheapen(s);
   }
 
@@ -265,6 +271,7 @@ export class WorldView {
       this.circles.push({ x, z, r: 0.3 });
     });
     for (const im of [trunks, blossoms]) { im.castShadow = true; im.receiveShadow = true; s.add(im); }
+    (this.treeGroups ||= []).push({ kind: 'sakura', list, trunks, leaves: blossoms, per: 4 });
     // đèn đá kiểu Nhật + ghế
     const stone = mat('#9c968e', { roughness: 0.9 });
     for (const [x, z] of [[51.5, 5.5], [56.5, 5.5], [51.5, 8.5], [56.5, 8.5]]) {
@@ -277,7 +284,6 @@ export class WorldView {
       g.position.set(x, 0, z); s.add(g);
       this.circles.push({ x, z, r: 0.3 });
     }
-    for (const [x, z, ry] of [[53.9, 4.6, 0], [53.9, 9.5, Math.PI]]) { const b = bench(); b.position.set(x, 0, z); b.rotation.y = ry; s.add(b); this.rects.push({ x: x - 0.65, z: z - 0.25, w: 1.3, d: 0.5 }); }
   }
 
   // 🏯 Công viên: chòi nghỉ + luống hoa
@@ -338,6 +344,7 @@ export class WorldView {
       this.circles.push({ x: tx, z: tz, r: 0.3 });
     });
     for (const im of [trunks, leaves]) { im.castShadow = true; im.receiveShadow = true; this.scene.add(im); }
+    (this.treeGroups ||= []).push({ kind: 'tree', list, trunks, leaves, per: 3 });
   }
 
   // ---------------- Ngày / đêm theo giờ Việt Nam ----------------
@@ -457,7 +464,88 @@ export class WorldView {
   }
 
   // ---------------- Hành động & pháo hoa ----------------
-  emote(id, type) { (id === store.selfId ? this.me : this.remotes.get(id)?.av)?.emote(type); }
+  emote(id, type) {
+    const av = id === store.selfId ? this.me : this.remotes.get(id)?.av;
+    if (!av) return;
+    av.emote(type);
+    const f = EMOTES[type]?.float;
+    if (f) this.emoji(id, f);
+  }
+
+  // ---------------- 🪑 ngồi ghế · 🐾 vuốt ve · 🌳 rung cây ----------------
+  seatTaken(i) { for (const p of store.players.values()) if (p.seat === i && p.id !== store.selfId && p.room === 'lobby') return true; return false; }
+  sit(i) {
+    const st = SEATS[i];
+    if (!st || this.seatTaken(i)) return;
+    socket.emit('seat:sit', i, (r) => {
+      if (!r?.ok) { store.emit('toast', r?.error || 'Không ngồi được'); return; }
+      this.mySeat = i;
+      this.ctrl.pos = { x: st.sx, z: st.sz };
+      this.ctrl.target = null;
+      this.ctrl.angle = st.ry;
+      this.lastSent.x = NaN;
+    });
+  }
+  stand() {
+    if (this.mySeat == null) return;
+    this.mySeat = null;
+    this.me.sitting = false;
+    socket.emit('seat:stand');
+  }
+  /** Đặt nhân vật lên ghế (mình hoặc người khác). */
+  placeSeated(av, i) {
+    const st = SEATS[i];
+    av.setPosition(st.x, st.z, st.y);
+    av.root.rotation.y = st.ry; av.faceTo(st.ry);
+    av.sitting = true; av.moving = false;
+  }
+  petCritter(c) {
+    this.me.faceTo(Math.atan2(c.x - this.ctrl.pos.x, c.z - this.ctrl.pos.z));
+    this.ctrl.angle = this.me.targetRot;
+    socket.emit('critter:pet', c.i);
+  }
+  shakeTree(tr) {
+    this.me.faceTo(Math.atan2(tr.x - this.ctrl.pos.x, tr.z - this.ctrl.pos.z));
+    this.ctrl.angle = this.me.targetRot;
+    this.me.jump();
+    socket.emit('tree:shake', { kind: tr.kind, i: tr.i });
+  }
+  critterLabel(c) {
+    const id = `c${c.i}`;
+    if (!this.labels.items.has(id)) { this.labels.add(id, `${c.icon} ${c.name}`, false); this.labels.items.get(id).el.classList.add('critter'); }
+    return id;
+  }
+  /** Thứ tương tác được ở gần (sau cửa/vòng quay): ghế, con vật, cây. */
+  findThing() {
+    const { x, z } = this.ctrl.pos;
+    if (this.mySeat != null) return { type: 'stand', key: 'stand' };
+    let seat = -1, sd = 0.9;
+    SEATS.forEach((st, i) => { const d = Math.hypot(st.sx - x, st.sz - z); if (d < sd && !this.seatTaken(i)) { sd = d; seat = i; } });
+    if (seat >= 0) return { type: 'seat', i: seat, key: `s${seat}` };
+    if (this.canFish()) return null; // ven hồ: ưu tiên câu cá (vịt thì bấm thẳng vào con vịt)
+    const c = this.critters.nearest(x, z);
+    if (c) return { type: 'critter', c, key: `c${c.i}` };
+    const tr = this.nature.nearest(x, z, 1.35);
+    if (tr) return { type: 'tree', tr, key: `${tr.kind}${tr.i}` };
+    return null;
+  }
+  doThing(th) {
+    if (th.type === 'stand') this.stand();
+    else if (th.type === 'seat') this.sit(th.i);
+    else if (th.type === 'critter') this.petCritter(th.c);
+    else if (th.type === 'tree') this.shakeTree(th.tr);
+  }
+  /** Nhấn E / chạm gợi ý. */
+  interact() {
+    if (store.room !== 'lobby') return;
+    if (this.nearDoor && !this.fishing) return store.emit('enter-room', this.nearDoor.id);
+    if (this.fishing) return socket.emit('fish:reel');
+    if (this.nearWheel) return this.spinWheel();
+    const th = this.thing;
+    if (th && (th.type === 'stand' || th.type === 'seat')) return this.doThing(th);
+    if (this.canFish()) return this.castLine();
+    if (th) this.doThing(th);
+  }
   fireworks(x, y) {
     const fx = x / PX, fz = y / PX - 7; // nổ phía trước mặt (phía bắc)
     this.fx.launch(fx, fz);
@@ -512,12 +600,8 @@ export class WorldView {
   // ---------------- Input ----------------
   onKey(code) {
     if (store.room !== 'lobby') return;
-    if (code === 'KeyE') {
-      if (this.nearDoor && !this.fishing) store.emit('enter-room', this.nearDoor.id);
-      else if (this.fishing) socket.emit('fish:reel');
-      else if (this.nearWheel) this.spinWheel();
-      else if (this.canFish()) this.castLine();
-    }
+    if (code === 'KeyE') this.interact();
+    if (code === 'KeyQ') store.emit('toggle-emotes');
     const digit = /^(?:Digit|Numpad)([1-6])$/.exec(code);
     if (digit) socket.emit('emoji:send', +digit[1] - 1);
     const em = { Digit7: 'dance', Digit8: 'bow', Digit9: 'wave', Digit0: 'spin' }[code];
@@ -534,8 +618,36 @@ export class WorldView {
       // bấm thẳng vào vòng quay (đứng trong khoảng 12m) → quay
       const W = this.wheel.root.position;
       if (Math.hypot(this.ctrl.pos.x - W.x, this.ctrl.pos.z - W.z) < 12 && this.engine.pick(e.clientX, e.clientY, [this.wheel.root], true).length) { this.spinWheel(); return; }
-      const hit = this.engine.pick(e.clientX, e.clientY, [this.ground], false)[0];
-      if (hit) this.ctrl.goTo(hit.point.x, hit.point.z);
+      const { x, z } = this.ctrl.pos;
+      const hits = this.engine.pick(e.clientX, e.clientY, [...this.critters.list.map((c) => c.mesh), ...this.benchMeshes, ...this.nature.meshes(), this.ground], true);
+      for (const hit of hits) {
+        if (hit.object === this.ground) {
+          // chạm hụt chút xíu cạnh con vật (ngón tay to, vịt nhỏ) vẫn tính là chạm vào nó
+          const c = this.critters.list.find((c) => Math.hypot(c.x - hit.point.x, c.z - hit.point.z) < 0.9 && Math.hypot(c.x - x, c.z - z) < (c.water ? 11 : 7));
+          if (c) { this.petCritter(c); return; }
+          this.ctrl.goTo(hit.point.x, hit.point.z); this.pendingSeat = null; return;
+        }
+        const ci = hit.object.userData.critter;
+        if (ci != null) {
+          const c = this.critters.list[ci];
+          if (Math.hypot(c.x - x, c.z - z) < (c.water ? 11 : 7)) { this.petCritter(c); return; } // vịt dưới nước: bấm từ bờ
+          this.ctrl.goTo(c.x, c.z); return;
+        }
+        let b = hit.object; while (b && b.userData.bench == null) b = b.parent;
+        if (b) { // bấm vào ghế → đi tới rồi ngồi vào chỗ trống gần nhất
+          const free = SEATS.map((st, i) => ({ st, i })).filter(({ st, i }) => st.bench === b.userData.bench && !this.seatTaken(i));
+          if (!free.length) { store.emit('toast', 'Ghế này có người ngồi rồi'); return; }
+          free.sort((p, q) => Math.hypot(p.st.sx - x, p.st.sz - z) - Math.hypot(q.st.sx - x, q.st.sz - z));
+          this.stand();
+          this.pendingSeat = free[0].i; this.ctrl.goTo(free[0].st.sx, free[0].st.sz); return;
+        }
+        const tr = this.nature.fromHit(hit);
+        if (tr) {
+          const [tx, tz] = this.nature.groups[tr.kind].list[tr.i];
+          if (Math.hypot(tx - x, tz - z) < 5) { this.shakeTree({ ...tr, x: tx, z: tz }); return; }
+          continue; // cây ở xa: coi như bấm xuống đất phía sau
+        }
+      }
     };
     this.rig.onRotate = () => store.emit('camera-rotated');
   }
@@ -571,6 +683,30 @@ export class WorldView {
         store.emit('players-changed');
       },
       weather: ({ type }) => this.setWeather(type),
+      'world:seat': ({ id, seat }) => {
+        const p = store.players.get(id);
+        if (p) p.seat = seat;
+        if (id === store.selfId) { this.mySeat = seat; if (seat == null) this.me.sitting = false; }
+        else { const r = this.remotes.get(id); if (r && seat == null) r.av.sitting = false; }
+      },
+      'critter:pet': ({ id, i }) => {
+        const c = this.critters.list[i];
+        if (!c) return;
+        this.critters.react(i);
+        if (!this.active) return;
+        if (Math.hypot(c.x - this.ctrl.pos.x, c.z - this.ctrl.pos.z) < 14) { this.labels.emoji(this.critterLabel(c), ['💕', '❤️', '💖'][Math.floor(Math.random() * 3)]); sound.play(c.sound); }
+        const r = id === store.selfId ? null : this.remotes.get(id);
+        if (r) r.av.faceTo(Math.atan2(c.x - r.av.root.position.x, c.z - r.av.root.position.z));
+      },
+      'tree:shake': ({ id, kind, i, out }) => {
+        this.nature.shake(kind, i, out);
+        const pos = this.nature.groups[kind]?.list[i];
+        if (!pos || !this.active || Math.hypot(pos[0] - this.ctrl.pos.x, pos[1] - this.ctrl.pos.z) > 16) return;
+        sound.play(out.type === 'bird' ? 'chirp' : 'rustle');
+        if (out.type === 'fruit') setTimeout(() => this.emoji(id, FRUITS[out.fruit]?.icon || '🍊'), 700);
+        if (out.type === 'bird') this.emoji(id, '🐦');
+      },
+      'tree:got': ({ fruit, total }) => { const f = FRUITS[fruit]; if (f) store.emit('toast', `🧺 Hái được 1 quả ${f.name} ${f.icon} · trong giỏ: ${total} quả`); },
       'world:playerUpdated': ({ id, admin }) => {
         const p = store.players.get(id);
         if (!p) return;
@@ -634,9 +770,18 @@ export class WorldView {
     const c = this.ctrl;
     c.update(dt, this.rig.sYaw); // W luôn là "đi về phía camera đang nhìn"
     const me = this.me;
-    me.moving = c.moving;
-    if (c.moving) me.faceTo(c.angle);
-    me.setPosition(c.pos.x, c.pos.z);
+    if (this.mySeat != null && c.moving) this.stand(); // đi tiếp → đứng dậy
+    if (this.pendingSeat != null && !c.target) { // bấm vào ghế → tới nơi thì ngồi
+      const st = SEATS[this.pendingSeat];
+      if (Math.hypot(st.sx - c.pos.x, st.sz - c.pos.z) < 0.4) this.sit(this.pendingSeat);
+      this.pendingSeat = null;
+    }
+    if (this.mySeat != null) this.placeSeated(me, this.mySeat);
+    else {
+      me.moving = c.moving;
+      if (c.moving) me.faceTo(c.angle);
+      me.setPosition(c.pos.x, c.pos.z);
+    }
     me.update(dt, t);
 
     // gửi vị trí ~15 lần/giây khi đổi
@@ -652,12 +797,13 @@ export class WorldView {
 
     // người khác: nội suy
     const a = Math.min(1, dt * 10);
-    for (const r of this.remotes.values()) {
+    for (const [id, r] of this.remotes) {
       const p = r.av.root.position;
       if (Math.abs(r.tx - p.x) > 8 || Math.abs(r.tz - p.z) > 8) p.set(r.tx, 0, r.tz);
       else { p.x += (r.tx - p.x) * a; p.z += (r.tz - p.z) * a; }
-      r.av.moving = r.moving;
-      r.av.faceTo(r.rot);
+      const seat = store.players.get(id)?.seat;
+      if (seat != null && SEATS[seat]) this.placeSeated(r.av, seat);
+      else { r.av.moving = r.moving; r.av.faceTo(r.rot); p.y = 0; }
       r.av.update(dt, t);
     }
 
@@ -692,6 +838,17 @@ export class WorldView {
     if (nearWheel !== this.nearWheel) { this.nearWheel = nearWheel; store.emit('near-wheel', nearWheel); }
     const fishable = store.room === 'lobby' && !this.nearDoor && !this.fishing && this.canFish();
     if (fishable !== this.fishable) { this.fishable = fishable; store.emit('near-fish', fishable); }
+    this.critters.update(dt, t, c.pos);
+    this.nature.update(dt, t);
+    // ghế / con vật / cây ở gần → gợi ý (kiểm tra ~7 lần/giây cho nhẹ)
+    if ((this._thingT = (this._thingT || 0) - dt) <= 0) {
+      this._thingT = 0.15;
+      const th = store.room === 'lobby' && !this.nearDoor && !this.nearWheel && !this.fishing ? this.findThing() : null;
+      if ((th?.key ?? null) !== (this.thing?.key ?? null)) {
+        this.thing = th;
+        store.emit('near-thing', th && { type: th.type, label: th.type === 'critter' ? `${th.c.icon} ${th.c.name}` : th.type === 'tree' ? (th.tr.kind === 'sakura' ? '🌸 cây hoa đào' : '🌳 cây') : '🪑 ghế' });
+      } else if (th) this.thing = th;
+    }
     if (performance.now() - this.timeAt > 20000) this.applyTime(); // cập nhật trời mỗi 20 giây
   }
 
@@ -701,6 +858,16 @@ export class WorldView {
     const put = (id, av) => { const s = proj(av.topPosition()); this.labels.position(id, s.x, s.y); };
     put('me', this.me);
     for (const [id, r] of this.remotes) if (r.av.root.visible) put(id, r.av);
+    const v = (this._cv ||= new THREE.Vector3());
+    for (const c of this.critters.list) {
+      const near = Math.abs(c.x - this.ctrl.pos.x) < 7 && Math.abs(c.z - this.ctrl.pos.z) < 7;
+      const id = `c${c.i}`;
+      if (!near) { if (this.labels.items.has(id)) this.labels.setVisible(id, false); continue; }
+      this.critterLabel(c);
+      const s = proj(this.critters.topOf(c, v));
+      this.labels.setVisible(id, s.visible);
+      this.labels.position(id, s.x, s.y);
+    }
     for (const s of this.signs) {
       const p = proj(s.pos);
       s.el.hidden = !p.visible;
@@ -710,6 +877,7 @@ export class WorldView {
 
   /** Rời phòng → đứng trước cửa tòa nhà đó. */
   placeAtDoor(roomId) {
+    this.mySeat = null; this.me.sitting = false; this.pendingSeat = null;
     const b = BUILDINGS.find((x) => x.id === roomId);
     if (b) this.ctrl.pos = { x: b.door.x + b.dir.x * 0.6, z: b.door.z + b.dir.z * 0.6 };
     const ang = b ? Math.atan2(b.dir.x, b.dir.z) : 0;

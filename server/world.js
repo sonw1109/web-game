@@ -24,7 +24,8 @@ const guessLimit = rateLimiter(15, 5000); // phòng Vẽ: đoán dồn dập là
 const emojiLimit = rateLimiter(5, 2000);  // tối đa 5 emoji / 2 giây
 const emoteLimit = rateLimiter(4, 3000);  // hành động (nhảy, cúi chào…)
 const fxLimit = rateLimiter(1, 8000);     // pháo hoa: 1 lần / 8 giây mỗi người
-export const EMOTES = ['dance', 'bow', 'wave', 'spin'];
+export const EMOTES = ['dance', 'bow', 'wave', 'spin', 'laugh', 'love', 'angry', 'cry', 'shock', 'sleep', 'shy', 'cheer'];
+export const MAX_SEATS = 64;
 
 // 👑 Admin: mật khẩu riêng.
 // - Có biến môi trường ADMIN_PASSWORD → dùng mật khẩu đó.
@@ -69,18 +70,34 @@ export function registerWorld(io) {
 
   const publicPlayer = (p) => ({
     id: p.id, name: p.name, appearance: p.appearance,
-    x: p.x, y: p.y, dir: p.dir, moving: p.moving, room: p.room, bot: !!p.bot, rot: p.rot ?? 0, admin: !!p.admin,
+    x: p.x, y: p.y, dir: p.dir, moving: p.moving, room: p.room, bot: !!p.bot, rot: p.rot ?? 0, admin: !!p.admin, seat: p.seat ?? null,
   });
 
   /** Đổi phòng (dùng chung cho người thật và bot – bot không có socket). */
   function changeRoom(p, room, socket) {
     if (!ROOMS.has(room) || p.room === room) return;
     const prev = p.room;
+    standUp(p);
     socket?.leave(`room:${prev}`);
     socket?.join(`room:${room}`);
     p.room = room;
     io.emit('world:roomChanged', { id: p.id, room, prev });
     events.emit('room', { socket, p, room, prev });
+  }
+
+  /** 🪑 Ghế: mỗi chỗ 1 người, chỉ ở sảnh. */
+  function standUp(p) {
+    if (p?.seat == null) return;
+    p.seat = null;
+    io.emit('world:seat', { id: p.id, seat: null });
+  }
+  function sitDown(p, seat) {
+    if (!p || p.room !== 'lobby' || !Number.isInteger(seat) || seat < 0 || seat >= MAX_SEATS) return { error: 'Không ngồi được' };
+    if (p.seat === seat) return { ok: true };
+    for (const q of players.values()) if (q !== p && q.seat === seat) return { error: 'Ghế này có người ngồi rồi' };
+    p.seat = seat; p.moving = false;
+    io.emit('world:seat', { id: p.id, seat });
+    return { ok: true };
   }
 
   /** Gửi chat (qua bộ lọc của phòng game, vd. đoán từ). */
@@ -114,8 +131,12 @@ export function registerWorld(io) {
       p.dir = ['up', 'down', 'left', 'right'].includes(d?.dir) ? d.dir : p.dir;
       p.moving = !!d?.moving;
       p.rot = num(d?.rot, p.rot ?? 0); // góc quay (radian) cho bản 3D
+      if (p.moving) standUp(p); // đứng dậy đi tiếp
       dirty = true;
     });
+
+    socket.on('seat:sit', (seat, ack) => reply(ack, sitDown(players.get(socket.id), seat)));
+    socket.on('seat:stand', () => standUp(players.get(socket.id)));
 
     socket.on('world:setRoom', (room) => {
       const p = players.get(socket.id);

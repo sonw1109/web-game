@@ -25,6 +25,16 @@ const SOUNDS = {
   wrong: () => { tone(220, 0, 0.18, 'sawtooth', 0.06); tone(180, 0.15, 0.25, 'sawtooth', 0.06); },
   win: () => [523, 659, 784, 659, 784, 1046].forEach((f, i) => tone(f, i * 0.11, 0.2, 'triangle', 0.12)),
   start: () => [392, 523, 659].forEach((f, i) => tone(f, i * 0.1, 0.14, 'triangle', 0.1)),
+  // 🐾 tiếng con vật & cây (tổng hợp, ngắn gọn)
+  quack: () => { tone(420, 0, 0.12, 'sawtooth', 0.06); tone(380, 0.14, 0.14, 'sawtooth', 0.06); },
+  peep: () => [1900, 2200, 1900].forEach((f, i) => tone(f, i * 0.09, 0.06, 'sine', 0.05)),
+  cluck: () => [520, 480, 700].forEach((f, i) => tone(f, i * 0.1, 0.07, 'square', 0.04)),
+  woof: () => { tone(260, 0, 0.12, 'sawtooth', 0.08); tone(200, 0.2, 0.14, 'sawtooth', 0.08); },
+  meow: () => { tone(700, 0, 0.12, 'triangle', 0.07); tone(900, 0.1, 0.2, 'triangle', 0.06); tone(600, 0.28, 0.18, 'triangle', 0.05); },
+  squeak: () => tone(1500, 0, 0.08, 'sine', 0.05),
+  moo: () => { tone(140, 0, 0.6, 'sawtooth', 0.07); tone(120, 0.3, 0.5, 'sawtooth', 0.05); },
+  chirp: () => [2600, 3100, 2800, 3300].forEach((f, i) => tone(f, i * 0.07, 0.05, 'sine', 0.04)),
+  rustle: () => { for (let i = 0; i < 6; i++) tone(2000 + Math.random() * 3000, i * 0.04, 0.05, 'square', 0.012); },
   boom: () => { tone(90, 0, 0.5, 'sawtooth', 0.08); tone(60, 0.05, 0.6, 'square', 0.05); [1200, 1500, 900].forEach((f, i) => tone(f, 0.15 + i * 0.07, 0.25, 'sine', 0.03)); },
 };
 

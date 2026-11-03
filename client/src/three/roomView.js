@@ -1,6 +1,7 @@
 // Nền chung cho các phòng 3D: thành viên trong phòng được xếp vào chỗ ngồi/đứng,
 // có tên + bong bóng chat trên đầu, camera khẽ lắc theo chuột cho có chiều sâu.
 import * as THREE from 'three';
+import { EMOTES } from './expressions.js';
 import { store } from '../store.js';
 import { Avatar } from './avatar.js';
 import { Labels } from '../ui/labels.js';
@@ -71,7 +72,7 @@ export class RoomView {
   renameLabel(id, name) { this.labels.rename(id, name); }
   bubble(id, text) { if (this.members.has(id)) this.labels.bubble(id, text); }
   emoji(id, e) { if (this.members.has(id)) this.labels.emoji(id, e); }
-  emote(id, type) { this.members.get(id)?.av.emote(type); }
+  emote(id, type) { this.members.get(id)?.av.emote(type); const f = EMOTES[type]?.float; if (f) this.emoji(id, f); }
 
   activate() {
     this.active = true;

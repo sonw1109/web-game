@@ -28,6 +28,7 @@ import { initPhoto } from './ui/photo.js';
 import { initMinimap } from './ui/minimap.js';
 import { Q, PRESETS, isTouch, saveChoice, savedChoice } from './three/quality.js';
 import { BUILDINGS } from './game/map.js';
+import { EMOTE_LIST } from './three/expressions.js';
 
 const $ = (id) => document.getElementById(id);
 const EMOJIS = ['😂', '❤️', '👍', '😮', '😢', '🔥'];
@@ -141,6 +142,26 @@ function setupHud() {
     b.onclick = () => socket.emit('emote:send', type);
     bar.append(b);
   });
+  // 🎭 Bảng biểu cảm (nút 🎭 hoặc phím Q)
+  const panel = document.createElement('div');
+  panel.id = 'emote-panel'; panel.hidden = true;
+  panel.innerHTML = '<b>Biểu cảm</b><div class="emote-grid"></div>';
+  EMOTE_LIST.forEach((em, i) => {
+    const b = document.createElement('button');
+    b.innerHTML = `<span>${em.icon}</span><small></small>`;
+    b.querySelector('small').textContent = em.name + (i < 4 ? ` · ${[7, 8, 9, 0][i]}` : '');
+    b.onclick = () => { socket.emit('emote:send', em.id); panel.hidden = true; };
+    panel.querySelector('.emote-grid').append(b);
+  });
+  document.getElementById('hud').append(panel);
+  const more = document.createElement('button');
+  more.className = 'emote-more'; more.innerHTML = '🎭<small>Q</small>'; more.title = 'Biểu cảm';
+  more.onclick = (e) => { e.stopPropagation(); panel.hidden = !panel.hidden; document.body.classList.remove('emoji-open'); };
+  bar.append(more);
+  store.on('toggle-emotes', () => { panel.hidden = !panel.hidden; });
+  document.addEventListener('pointerdown', (e) => { if (!panel.hidden && !panel.contains(e.target) && e.target !== more && !more.contains(e.target)) panel.hidden = true; });
+  store.on('toast', (t) => toast(t, 3000));
+
   $('btn-fireworks').onclick = () => socket.emit('fx:fireworks');
   // 📸 chụp ảnh (nút ở sảnh + trong phòng, phím P)
   const photo = initPhoto({ getEngine: () => engine, toast });
@@ -182,19 +203,15 @@ function setupHud() {
   };
 
   // Bấm vào gợi ý cũng vào phòng (cho điện thoại)
-  $('interact-hint').onclick = () => {
-    const b = world?.nearDoor;
-    if (b) store.emit('enter-room', b.id);
-    else if (world?.nearWheel) world.spinWheel();
-    else if (world?.canFish() && !world.fishing) world.castLine();
-  };
+  $('interact-hint').onclick = () => world?.interact();
 
   // Số người online
   store.on('players-changed', () => { $('online-count').textContent = store.players.size; });
 
   // Gợi ý "Nhấn E": vào phòng / câu cá
   const fishing = initFishing();
-  const hintState = { door: null, fish: false, wheel: false, wheelBusy: false, wheelDone: false };
+  const hintState = { door: null, fish: false, wheel: false, wheelBusy: false, wheelDone: false, thing: null };
+  const THING_VERB = { stand: 'đứng dậy', seat: 'ngồi xuống', critter: 'vuốt ve', tree: 'rung' };
   const touch = () => document.body.classList.contains('touch');
   const paintHint = () => {
     const hint = $('interact-hint'), b = hintState.door;
@@ -204,14 +221,19 @@ function setupHud() {
     } else if (hintState.wheel) {
       hint.innerHTML = hintState.wheelBusy ? '🎡 Đang quay… chờ xem hôm nay ăn gì!'
         : `${touch() ? '👆 Chạm' : 'Nhấn <kbd>E</kbd> hoặc bấm vào vòng quay'} để ${hintState.wheelDone ? 'quay tiếp' : 'quay'} 🎡 <b>Hôm nay ăn gì?</b>`;
+    } else if (hintState.thing) { // ghế / con vật / cây (ven hồ thì worldView đã ưu tiên câu cá)
+      const th = hintState.thing;
+      hint.innerHTML = `${touch() ? '👆 Chạm' : 'Nhấn <kbd>E</kbd>'} để ${THING_VERB[th.type]} <b></b>`;
+      hint.querySelector('b').textContent = th.type === 'stand' ? '' : th.label;
     } else if (hintState.fish) {
       hint.innerHTML = `${touch() ? '👆 Chạm' : 'Nhấn <kbd>E</kbd>'} để câu cá 🎣 <button class="btn btn-ghost btn-sm" data-book>📖 Sổ cá</button>`;
       hint.querySelector('[data-book]').onclick = (e) => { e.stopPropagation(); fishing.openBook(); };
     }
-    hint.hidden = !b && !hintState.fish && !hintState.wheel;
+    hint.hidden = !b && !hintState.fish && !hintState.wheel && !hintState.thing;
   };
   store.on('near-door', (b) => { hintState.door = b; paintHint(); });
   store.on('near-fish', (v) => { hintState.fish = v; paintHint(); });
+  store.on('near-thing', (v) => { hintState.thing = v; paintHint(); });
   store.on('near-wheel', (v) => { hintState.wheel = v; paintHint(); });
   store.on('wheel-busy', (v) => { hintState.wheelBusy = v; if (!v) hintState.wheelDone = true; paintHint(); });
 

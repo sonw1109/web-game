@@ -56,6 +56,26 @@ export const GARDEN = { x: 46, y: 3, w: 16, h: 11 };   // 🌸 vườn hoa đào
 export const PARK = { x: 19, y: 37, w: 11, h: 7 };     // 🏯 công viên + chòi nghỉ
 export const GAZEBO = { x: 24.5, y: 40.5 };
 
+// 🪑 Ghế ngồi được. ry: hướng mặt ghế (người ngồi nhìn về (sin ry, cos ry)); y: độ cao chân ghế.
+const faceTo = (x, z, tx, tz) => Math.atan2(tx - x, tz - z);
+const ringBench = (deg, r = 6.8) => {
+  const a = (deg * Math.PI) / 180, x = PLAZA.x + Math.cos(a) * r, z = PLAZA.z + Math.sin(a) * r;
+  return { x, z, ry: faceTo(x, z, PLAZA.x, PLAZA.z), y: 0 };
+};
+export const BENCHES = [
+  ...[36, 144, 240].map((d) => ringBench(d)),                       // quanh đài phun nước
+  { x: 53.9, z: 4.6, ry: 0, y: 0 }, { x: 53.9, z: 9.5, ry: Math.PI, y: 0 }, // vườn đào
+  { x: 41.9, z: 22.5, ry: Math.PI / 2, y: 0 }, { x: 41.9, z: 26.5, ry: Math.PI / 2, y: 0 }, // ngắm hồ câu
+  { x: GAZEBO.x, z: GAZEBO.y - 1.05, ry: 0, y: 0.25 }, { x: GAZEBO.x, z: GAZEBO.y + 1.05, ry: Math.PI, y: 0.25 }, // trong chòi
+];
+/** Mỗi ghế 2 chỗ: vị trí ngồi (x, y, z), hướng ry, chỗ đứng dậy (sx, sz) ngay trước ghế. */
+export const SEATS = BENCHES.flatMap((b, bi) => [-0.32, 0.32].map((off) => {
+  const c = Math.cos(b.ry), s = Math.sin(b.ry);
+  const at = (lx, lz) => ({ x: b.x + lx * c + lz * s, z: b.z - lx * s + lz * c });
+  const p = at(off, 0.04), st = at(off, 0.72);
+  return { bench: bi, x: p.x, z: p.z, y: b.y + 0.4, ry: b.ry, sx: st.x, sz: st.z };
+}));
+
 // ---- Lưới mặt đất ----
 // 0 cỏ, 1 đường đá, 2 quảng trường, 3 nước, 4 cỏ vườn đào (có cánh hoa)
 function buildGround() {

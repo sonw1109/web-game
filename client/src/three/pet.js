@@ -16,7 +16,7 @@ function part(g, geo, m, [x, y, z], [sx, sy, sz], rot) {
   return o;
 }
 
-function build(type) {
+export function buildPet(type) {
   const g = new THREE.Group();
   const eye = mat('#1d1820', { roughness: 0.3 });
   const eyes = (y, z, dx = 0.06) => { for (const s of [-1, 1]) part(g, S, eye, [s * dx, y, z], [0.022, 0.03, 0.02]); };
@@ -53,7 +53,7 @@ function build(type) {
 export class Pet {
   constructor(type, scene) {
     this.type = type;
-    this.root = build(type);
+    this.root = buildPet(type);
     this.root.scale.setScalar(1.15);
     scene.add(this.root);
     this.phase = Math.random() * 10;
