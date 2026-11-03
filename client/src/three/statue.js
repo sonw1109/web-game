@@ -6,6 +6,7 @@ import * as THREE from 'three';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { Q } from './quality.js';
 import { STATUE, ALTAR, MATS } from '../game/map.js';
+import FACE_URL from '../assets/ong-chu-face.jpg';
 
 const SCALE = 5.2;           // tượng = nhân vật × 5.2
 const PEDESTAL_H = 1.8;
@@ -61,7 +62,7 @@ function plaqueTexture() {
 
 /** Tượng (đơn vị = kích thước nhân vật, mặt hướng +z). */
 function statueBody(bk, mats) {
-  const { gold, shirt, hair, silver, lip, eye, lens } = mats;
+  const { gold, shirt, hair } = mats;
   // áo thun + quần + giày
   const shirtGeo = new THREE.LatheGeometry([[0, 0.17], [0.235, 0.17], [0.255, 0.24], [0.25, 0.38], [0.215, 0.48], [0.12, 0.55], [0, 0.56]].map(([x, y]) => new THREE.Vector2(x, y)), 24);
   bk.add(shirt, shirtGeo);
@@ -82,25 +83,8 @@ function statueBody(bk, mats) {
   const H = [0, 0.84, 0];
   const at = (x, y, z) => [H[0] + x, H[1] + y, H[2] + z];
   bk.add(gold, SPH, { p: H, s: [0.33, 0.31, 0.31] });
-  bk.add(gold, SPH, { p: at(0, -0.12, 0.13), s: [0.24, 0.17, 0.2] }); // má phúng phính
   for (const s of [-1, 1]) bk.add(gold, SPH, { p: at(s * 0.32, -0.02, 0), s: [0.05, 0.08, 0.05] }); // tai
-  bk.add(gold, SPH, { p: at(0, -0.07, 0.315), s: [0.05, 0.045, 0.05] }); // mũi
-  // mắt lim dim + lông mày
-  for (const s of [-1, 1]) {
-    bk.add(eye, SPH, { p: at(s * 0.11, 0.0, 0.29), s: [0.04, 0.016, 0.02] });
-    bk.add(hair, BOX, { p: at(s * 0.11, 0.075, 0.292), s: [0.085, 0.014, 0.02], r: [0, 0, s * -0.12] });
-  }
-  // môi chu
-  bk.add(lip, SPH, { p: at(0, -0.155, 0.3), s: [0.075, 0.026, 0.04] });
-  bk.add(lip, SPH, { p: at(0, -0.185, 0.295), s: [0.068, 0.028, 0.04] });
-  // kính gọng bạc to
-  const ring = new THREE.TorusGeometry(1, 0.1, 6, 24);
-  for (const s of [-1, 1]) {
-    bk.add(silver, ring, { p: at(s * 0.12, 0.005, 0.322), s: [0.1, 0.075, 0.09] });
-    bk.add(lens, new THREE.CircleGeometry(1, 20), { p: at(s * 0.12, 0.005, 0.322), s: [0.1, 0.075, 1] });
-    bk.link(silver, CYL, at(s * 0.215, 0.02, 0.31), at(s * 0.31, 0.02, 0.04), 0.008); // gọng tai
-  }
-  bk.link(silver, CYL, at(-0.03, 0.02, 0.33), at(0.03, 0.02, 0.33), 0.008); // cầu kính
+  // mặt (cả kính) là ảnh thật – xem faceDecal()
   // tóc đen bù xù: chỏm + mái lệch + những lọn dựng
   bk.add(hair, new THREE.SphereGeometry(1, 24, 12, 0, Math.PI * 2, 0, Math.PI * 0.52), { p: at(0, 0.02, -0.02), s: [0.345, 0.34, 0.34], r: [-0.38, 0, 0] });
   let seed = 7; const rnd = () => ((seed = (seed * 16807) % 2147483647) / 2147483647);
@@ -118,6 +102,36 @@ function statueBody(bk, mats) {
   }
 }
 
+/** Mảnh cong ôm phía trước đầu tượng, dán ảnh mặt thật (viền mờ dần vào lớp vàng). */
+function faceDecal() {
+  // đầu tượng là khối cầu co giãn (0.33, 0.31, 0.31) tâm (0, 0.84, 0) → mảnh cầu cùng tỉ lệ, nhô ra 1%
+  const geo = new THREE.SphereGeometry(1, 28, 24, Math.PI / 2 - 0.74, 1.48, 0.86, 1.62);
+  const tex = new THREE.Texture();
+  tex.colorSpace = THREE.SRGBColorSpace;
+  tex.anisotropy = 4;
+  const img = new Image();
+  img.onload = () => {
+    const cv = document.createElement('canvas');
+    cv.width = img.width; cv.height = img.height;
+    const c = cv.getContext('2d');
+    c.drawImage(img, 0, 0);
+    // làm mờ viền theo hình bầu dục
+    c.globalCompositeOperation = 'destination-in';
+    const g = c.createRadialGradient(cv.width / 2, cv.width / 2, cv.width * 0.3, cv.width / 2, cv.width / 2, cv.width * 0.56); // (tọa độ trước khi giãn dọc)
+    g.addColorStop(0, 'rgba(0,0,0,1)'); g.addColorStop(1, 'rgba(0,0,0,0)');
+    c.setTransform(1, 0, 0, cv.height / cv.width, 0, 0); // giãn gradient theo chiều dọc thành bầu dục
+    c.fillStyle = g; c.fillRect(0, 0, cv.width, cv.width);
+    tex.image = cv; tex.needsUpdate = true;
+  };
+  img.src = FACE_URL;
+  const opts = { map: tex, transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -4, emissive: '#ffffff', emissiveMap: tex, emissiveIntensity: 0.35 };
+  const mat = Q.cheapMaterials ? new THREE.MeshLambertMaterial(opts) : new THREE.MeshStandardMaterial({ ...opts, roughness: 0.6 });
+  const m = new THREE.Mesh(geo, mat);
+  m.position.set(0, 0.84, 0); m.scale.set(0.336, 0.316, 0.316);
+  m.userData.keepMaterial = true;
+  return m;
+}
+
 export class Shrine {
   constructor(scene) {
     this.scene = scene;
@@ -127,8 +141,6 @@ export class Shrine {
     this.gold = gold;
     const mats = {
       gold, shirt: M('#2b2622', { metalness: 0.6, roughness: 0.35 }), hair: M('#15110e', { roughness: 0.35, metalness: 0.3 }),
-      silver: M('#dfe4ea', { metalness: 1, roughness: 0.15 }), lip: M('#d9876a', { metalness: 0.6, roughness: 0.3 }), eye: M('#1d1820', { roughness: 0.2 }),
-      lens: M('#bfe6ff', { transparent: true, opacity: 0.28, metalness: 0.5, roughness: 0.05 }),
     };
     // bệ đá 3 tầng
     const stone = M('#bcb3a6', { roughness: 0.85 }), stoneDark = M('#8f877c', { roughness: 0.9 });
@@ -148,6 +160,7 @@ export class Shrine {
     // tượng
     const st = new THREE.Group();
     const bk = new Baker(); statueBody(bk, mats); bk.build(st);
+    st.add(faceDecal());
     st.scale.setScalar(SCALE);
     st.position.set(STATUE.x, PEDESTAL_H, STATUE.z);
     st.rotation.y = Math.PI / 2; // mặt hướng đông (lối vào)
