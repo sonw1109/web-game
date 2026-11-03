@@ -41,6 +41,7 @@ export function initPhoto({ getEngine, toast }) {
     const out = document.createElement('canvas'); out.width = Math.round(shot.width * s); out.height = Math.round(shot.height * s);
     out.getContext('2d').drawImage(shot, 0, 0, out.width, out.height);
     blob = await new Promise((r) => out.toBlob(r, 'image/jpeg', 0.88));
+    if (img.src.startsWith('blob:')) URL.revokeObjectURL(img.src); // giải phóng ảnh chụp trước
     img.src = URL.createObjectURL(blob);
     img.dataset.w = out.width; img.dataset.h = out.height;
     $('photo-download').href = img.src;

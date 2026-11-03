@@ -54,7 +54,14 @@ export class OrbitRig {
       const g = this.drag;
       this.pointers.delete(e.pointerId);
       if (this.pointers.size < 2) this.pinch = null;
-      if (g && !g.moved && this.pointers.size === 0) this.onTap?.(e);
+      // chỉ chuột trái / chạm mới là "bấm để đi"; chuột phải dùng để xoay
+      if (g && !g.moved && this.pointers.size === 0 && e.button !== 2) this.onTap?.(e);
+      if (this.pointers.size === 0) this.drag = null;
+    };
+    // chạm bị hủy (hệ thống chen ngang, cuộn trang…) → không coi là bấm
+    this._cancel = (e) => {
+      this.pointers.delete(e.pointerId);
+      if (this.pointers.size < 2) this.pinch = null;
       if (this.pointers.size === 0) this.drag = null;
     };
     this._wheel = (e) => { e.preventDefault(); this.zoom(Math.sign(e.deltaY) * this.dist * 0.12); };
@@ -69,7 +76,7 @@ export class OrbitRig {
     el.addEventListener('pointerdown', this._down);
     el.addEventListener('pointermove', this._move);
     el.addEventListener('pointerup', this._up);
-    el.addEventListener('pointercancel', this._up);
+    el.addEventListener('pointercancel', this._cancel);
     el.addEventListener('wheel', this._wheel, { passive: false });
     el.addEventListener('contextmenu', this._ctx);
   }
@@ -79,7 +86,7 @@ export class OrbitRig {
     el.removeEventListener('pointerdown', this._down);
     el.removeEventListener('pointermove', this._move);
     el.removeEventListener('pointerup', this._up);
-    el.removeEventListener('pointercancel', this._up);
+    el.removeEventListener('pointercancel', this._cancel);
     el.removeEventListener('wheel', this._wheel);
     el.removeEventListener('contextmenu', this._ctx);
     this.pointers.clear(); this.drag = null; this.pinch = null;
@@ -97,12 +104,12 @@ export class OrbitRig {
     this.sYaw += dy * a;
     this.sPitch += (this.pitch - this.sPitch) * a;
     this.sDist += (this.dist - this.sDist) * Math.min(1, dt * 6);
-    this.target.lerp(new THREE.Vector3(x, this.height, z), Math.min(1, dt * 12));
+    this.target.lerp((this._want ||= new THREE.Vector3()).set(x, this.height, z), Math.min(1, dt * 12));
     // Kéo xuống dưới tầm ngang (pitch < LOW) → camera hạ sát đất phía sau và NGƯỚC LÊN trời
     const LOW = 0.08;
     const pitch = Math.max(this.sPitch, LOW);
     let d = this.sDist;
-    const pos = new THREE.Vector3();
+    const pos = (this._pos ||= new THREE.Vector3());
     for (let i = 0; i < 8; i++) {
       const cp = Math.cos(pitch);
       pos.set(this.target.x + Math.sin(this.sYaw) * cp * d, this.target.y + Math.sin(pitch) * d, this.target.z + Math.cos(this.sYaw) * cp * d);

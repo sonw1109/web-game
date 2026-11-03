@@ -140,6 +140,17 @@ export function createTypingRoom() {
     if (s.phase === 'over' && prev?.phase === 'racing') sound.play(s.results?.[0]?.id === store.selfId ? 'win' : 'pop');
     view3d?.setState(s);
     if (s.phase !== renderedPhase) renderCard();
+    // vào lại phòng giữa cuộc đua: lấy lại tiến độ server đang giữ, điền sẵn đoạn đã gõ
+    if (!prev && s.phase === 'racing') {
+      const r = me(), inp = root.querySelector('.typing-input');
+      if (r?.progress && inp) {
+        myProgress = r.progress;
+        inp.value = s.text.normalize('NFC').slice(0, r.progress);
+        paintText(inp.value);
+        if (r.finishedMs) inp.disabled = true;
+        raceStartLocal = Date.now();
+      }
+    }
     renderBoard();
   };
 

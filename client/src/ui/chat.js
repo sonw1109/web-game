@@ -1,4 +1,5 @@
 import { socket } from '../net/socket.js';
+import { store } from '../store.js';
 
 const ROOM_TAG = { cinema: '🎬', draw: '🎨', quiz: '❓', caro: '⭕', gallery: '🖼️' };
 const MAX_MSGS = 150;
@@ -18,6 +19,7 @@ export function initChat() {
   };
   setCollapsed(matchMedia('(max-width: 700px)').matches);
   document.getElementById('chat-toggle').onclick = () => setCollapsed(!box.classList.contains('collapsed'));
+  store.on('chat-collapse', () => { if (!box.classList.contains('collapsed')) setCollapsed(true); });
 
   const add = (m) => {
     const div = document.createElement('div');

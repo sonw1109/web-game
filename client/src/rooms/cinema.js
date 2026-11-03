@@ -11,15 +11,28 @@ const fmt = (s) => {
 };
 
 let ytReady = null;
+/**
+ * Tải YouTube IFrame API đúng 1 lần.
+ * - API đã có sẵn (kể cả tải xong SAU lần hết giờ trước) → dùng luôn.
+ * - Script đang tải dở → chờ tiếp chứ không chèn thêm script (YouTube chỉ gọi onYouTubeIframeAPIReady 1 lần).
+ */
 function loadYouTubeAPI() {
+  if (window.YT?.Player) return Promise.resolve(window.YT);
   if (ytReady) return ytReady;
   ytReady = new Promise((resolve, reject) => {
-    window.onYouTubeIframeAPIReady = () => resolve(window.YT);
-    const s = document.createElement('script');
-    s.src = 'https://www.youtube.com/iframe_api';
-    s.onerror = () => { ytReady = null; s.remove(); reject(new Error('Không tải được YouTube (mạng chặn?)')); };
-    setTimeout(() => { if (!window.YT?.Player) { ytReady = null; reject(new Error('YouTube tải quá lâu – thử vào lại phòng')); } }, 15000);
-    document.head.append(s);
+    const done = () => { clearInterval(poll); clearTimeout(timer); resolve(window.YT); };
+    window.onYouTubeIframeAPIReady = done;
+    const poll = setInterval(() => { if (window.YT?.Player) done(); }, 500);
+    const fail = (msg) => { clearInterval(poll); clearTimeout(timer); ytReady = null; reject(new Error(msg)); };
+    const timer = setTimeout(() => fail('YouTube tải quá lâu – thử vào lại phòng'), 15000);
+    let s = document.querySelector('script[data-yt-api]');
+    if (!s) {
+      s = document.createElement('script');
+      s.src = 'https://www.youtube.com/iframe_api';
+      s.dataset.ytApi = '1';
+      s.onerror = () => { s.remove(); fail('Không tải được YouTube (mạng chặn?)'); };
+      document.head.append(s);
+    }
   });
   return ytReady;
 }
@@ -48,7 +61,13 @@ export function createCinemaRoom() {
   };
 
   // ---------- YouTube player ----------
-  async function ensurePlayer() {
+  // Tạo player đúng 1 lần (vào lại phòng lúc YouTube đang tải không sinh ra player thứ 2)
+  let playerPromise = null;
+  function ensurePlayer() {
+    playerPromise ||= createPlayer().catch((e) => { playerPromise = null; throw e; });
+    return playerPromise;
+  }
+  async function createPlayer() {
     if (player) return;
     const YT = await loadYouTubeAPI();
     await new Promise((resolve) => {

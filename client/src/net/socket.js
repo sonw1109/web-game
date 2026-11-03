@@ -17,7 +17,17 @@ export function connect(password) {
       }
       // các lỗi tạm thời khác: socket.io tự thử lại
     };
-    s.once('connect', () => { s.off('connect_error', onErr); socket = s; resolve(s); });
+    s.once('connect', () => {
+      s.off('connect_error', onErr);
+      socket = s;
+      // mật khẩu chung bị đổi khi đang chơi → kết nối lại sẽ bị từ chối mãi: quên mật khẩu cũ, tải lại để nhập mới
+      s.on('connect_error', (err) => {
+        if (err.message !== 'WRONG_PASSWORD') return;
+        try { localStorage.removeItem('hoiquan.password'); } catch {}
+        location.reload();
+      });
+      resolve(s);
+    });
     s.on('connect_error', onErr);
   });
 }

@@ -11,13 +11,21 @@ export const reply = (ack, data) => { if (typeof ack === 'function') ack(data); 
 /** Giới hạn tốc độ: tối đa `n` lần trong `ms` mili-giây cho mỗi key. */
 export function rateLimiter(n, ms) {
   const hits = new Map();
-  return (key) => {
+  const check = (key) => {
     const now = Date.now();
     const arr = (hits.get(key) || []).filter((t) => now - t < ms);
     if (arr.length >= n) { hits.set(key, arr); return false; }
     arr.push(now); hits.set(key, arr);
     return true;
   };
+  // dọn định kỳ các key đã hết hạn (mỗi kết nối tạo 1 key → không dọn thì map phình mãi)
+  const sweep = setInterval(() => {
+    const now = Date.now();
+    for (const [k, arr] of hits) if (!arr.length || now - arr[arr.length - 1] >= ms) hits.delete(k);
+  }, Math.max(ms, 1000));
+  sweep.unref?.();
+  check.size = () => hits.size;
+  return check;
 }
 const chatLimit = rateLimiter(6, 4000);   // tối đa 6 tin / 4 giây
 const guessLimit = rateLimiter(15, 5000); // phòng Vẽ: đoán dồn dập là bình thường → nới hơn
@@ -43,7 +51,9 @@ export function checkAdmin(pw, real = ADMIN_PASSWORD, builtin = BUILTIN, dev = D
   if (!builtin?.hash) return false;
   return timingSafeEqual(scryptSync(pw, builtin.salt, 32), Buffer.from(builtin.hash, 'hex'));
 }
-const adminTry = rateLimiter(5, 60_000); // tối đa 5 lần thử / phút
+const adminTry = rateLimiter(5, 60_000);       // tối đa 5 lần thử / phút mỗi kết nối
+const adminTryIp = rateLimiter(10, 60_000);    // … mỗi địa chỉ IP (kết nối lại cũng không né được)
+const adminTryAll = rateLimiter(30, 60_000);   // … toàn server (mỗi lần thử tốn CPU vì scrypt)
 
 const clampStr = (s, n) => String(s ?? '').trim().slice(0, n);
 const num = (v, d = 0) => (Number.isFinite(+v) ? +v : d);
@@ -110,6 +120,8 @@ export function registerWorld(io) {
 
   io.on('connection', (socket) => {
     socket.on('world:join', (data, ack) => {
+      // đã vào rồi (client gửi join 2 lần trên cùng kết nối) → không tạo người mới, tránh "ghế ma" kẹt trong phòng game
+      if (players.has(socket.id)) return reply(ack, { selfId: socket.id, players: [...players.values()].map(publicPlayer) });
       const p = {
         id: socket.id,
         name: clampStr(data?.name, 16) || 'Ẩn danh',
@@ -147,7 +159,7 @@ export function registerWorld(io) {
     const adminLogin = (pw) => {
       const p = players.get(socket.id);
       if (!p) return { error: 'Chưa vào Hội Quán' };
-      if (!adminTry(socket.id)) return { error: 'Thử sai nhiều quá, đợi 1 phút nhé' };
+      if (!adminTry(socket.id) || !adminTryIp(socket.handshake.address || 'ip') || !adminTryAll('all')) return { error: 'Thử sai nhiều quá, đợi 1 phút nhé' };
       if (!checkAdmin(pw)) return { error: 'Sai mật khẩu admin' };
       p.admin = true;
       io.emit('world:playerUpdated', { id: p.id, admin: true });

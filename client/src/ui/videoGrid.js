@@ -10,7 +10,7 @@ function meterFor(id, stream) {
   const track = stream.getAudioTracks()[0];
   const m = meters.get(id);
   if (m?.track === track) return m;
-  meters.delete(id);
+  dropMeter(id);
   if (!track) return null;
   try {
     audioCtx ||= new AudioContext();
@@ -18,10 +18,18 @@ function meterFor(id, stream) {
     const analyser = audioCtx.createAnalyser();
     analyser.fftSize = 256;
     src.connect(analyser);
-    const nm = { analyser, data: new Uint8Array(analyser.frequencyBinCount), track };
+    const nm = { analyser, data: new Uint8Array(analyser.frequencyBinCount), track, src };
     meters.set(id, nm);
     return nm;
   } catch { return null; }
+}
+
+/** Ngắt nút âm thanh của người đã rời (không thì AudioContext giữ mãi). */
+function dropMeter(id) {
+  const m = meters.get(id);
+  if (!m) return;
+  try { m.src.disconnect(); } catch {}
+  meters.delete(id);
 }
 
 function makeTile(id) {
@@ -29,7 +37,8 @@ function makeTile(id) {
   tile.className = 'rtc-tile';
   tile.dataset.id = id;
   tile.innerHTML = '<video autoplay playsinline></video><div class="avatar"></div><div class="tname"><span class="mic"></span><span class="n"></span></div>';
-  tile.onclick = () => tile.classList.toggle('big');
+  // ô phóng to phải nổi trên khung chat & bảng điều khiển → nâng cả thanh phòng lên khi có ô to
+  tile.onclick = () => { tile.classList.toggle('big'); document.body.classList.toggle('rtc-big', !!document.querySelector('.rtc-tile.big')); };
   return tile;
 }
 
@@ -44,6 +53,8 @@ function render() {
   ];
   const keep = new Set(entries.map((e) => e.id));
   for (const t of [...box.children]) if (!keep.has(t.dataset.id)) t.remove();
+  for (const id of [...meters.keys()]) if (!keep.has(id)) dropMeter(id);
+  document.body.classList.toggle('rtc-big', !!box.querySelector('.rtc-tile.big'));
 
   for (const e of entries) {
     let tile = box.querySelector(`[data-id="${CSS.escape(e.id)}"]`);

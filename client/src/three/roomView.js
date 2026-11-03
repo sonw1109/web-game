@@ -97,16 +97,18 @@ export class RoomView {
   update(dt, t) {
     for (const m of this.members.values()) m.av.update(dt, t);
     // camera lắc nhẹ theo chuột
-    const want = this.camPos.clone().add(new THREE.Vector3(this.mouse.x * this.parallax * 2, -this.mouse.y * this.parallax, 0));
+    const want = (this._want ||= new THREE.Vector3()).set(this.mouse.x * this.parallax * 2, -this.mouse.y * this.parallax, 0).add(this.camPos);
     this.camera.position.lerp(want, Math.min(1, dt * 3));
     this.camera.lookAt(this.camLook);
     this.onUpdate?.(dt, t);
   }
 
   afterRender() {
+    const v = (this._tv ||= new THREE.Vector3());
     for (const [id, m] of this.members) {
-      const p = this.engine.project(m.av.topPosition());
-      this.labels.position(id, p.x, p.y);
+      const p = this.engine.project(m.av.topPosition(v));
+      this.labels.setVisible(id, p.visible); // điểm sau lưng camera chiếu ra vị trí lật ngược → ẩn
+      if (p.visible) this.labels.position(id, p.x, p.y);
     }
   }
 }

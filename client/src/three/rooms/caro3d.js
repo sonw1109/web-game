@@ -178,19 +178,25 @@ export class CaroView extends RoomView {
     this.ghost.visible = true;
   }
 
+  /** Vật liệu quân "bóng mờ" (tạo 1 lần cho mỗi bên rồi dùng lại – trước đây nhân bản mỗi lần đổi ghế mà không giải phóng). */
+  ghostMat(side) {
+    this._ghostMats ||= {};
+    if (!this._ghostMats[side]) { const m = (side === 'X' ? this.xMat : this.oMat).clone(); m.transparent = true; m.opacity = 0.4; this._ghostMats[side] = m; }
+    return this._ghostMats[side];
+  }
+
   makePiece(seat, ghost = false) {
     let m;
     if (seat === 'X') {
       m = new THREE.Group();
       for (const r of [Math.PI / 4, -Math.PI / 4]) {
-        const bar = new THREE.Mesh(this.xGeo, ghost ? this.xMat.clone() : this.xMat);
+        const bar = new THREE.Mesh(this.xGeo, ghost ? this.ghostMat('X') : this.xMat);
         bar.rotation.y = r; bar.castShadow = true; m.add(bar);
       }
     } else {
-      m = new THREE.Mesh(this.oGeo, ghost ? this.oMat.clone() : this.oMat);
+      m = new THREE.Mesh(this.oGeo, ghost ? this.ghostMat('O') : this.oMat);
       m.rotation.x = -Math.PI / 2; m.castShadow = true;
     }
-    if (ghost) m.traverse((o) => { if (o.material) { o.material.transparent = true; o.material.opacity = 0.4; } });
     return m;
   }
 

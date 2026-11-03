@@ -31,7 +31,7 @@ export function createCaro(now = Date.now) {
     winLine: [],
     lastMove: -1,
     deadline: 0,
-    wins: {},                         // id -> số ván thắng
+    wins: Object.create(null),        // id -> số ván thắng
   };
 
   const seatOf = (id) => (s.seats.X === id ? 'X' : s.seats.O === id ? 'O' : null);

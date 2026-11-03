@@ -1,4 +1,5 @@
 import './styles/index.css';
+import './styles/theme.css';
 import { connect, socket } from './net/socket.js';
 import { store, saved } from './store.js';
 import { showCharacterCreate } from './ui/characterCreate.js';
@@ -26,9 +27,10 @@ import { createJoystick } from './ui/joystick.js';
 import { initFishing } from './ui/fishing.js';
 import { initPhoto } from './ui/photo.js';
 import { initMinimap } from './ui/minimap.js';
+import { initShrinePanel } from './ui/shrinePanel.js';
+import { initEmotePanel } from './ui/emotePanel.js';
 import { Q, PRESETS, isTouch, saveChoice, savedChoice } from './three/quality.js';
 import { BUILDINGS } from './game/map.js';
-import { EMOTE_LIST } from './three/expressions.js';
 
 const $ = (id) => document.getElementById(id);
 const EMOJIS = ['😂', '❤️', '👍', '😮', '😢', '🔥'];
@@ -85,6 +87,7 @@ let world = null;
 let character = null;
 
 function startWorld() {
+  $('intro-bg')?.remove(); // cảnh nền màn đăng nhập không cần nữa
   $('game').hidden = false;
   $('hud').hidden = false;
   if (world) { world.setCharacter(character); return; }
@@ -131,7 +134,11 @@ function setupHud() {
   // Điện thoại: cần điều khiển ảo + nút emoji gọn
   if (isTouch()) {
     document.body.classList.add('touch');
-    createJoystick((x, z) => { const c = engine?.view?.ctrl; if (c) c.analog = { x, z }; });
+    createJoystick((x, z) => {
+      const c = engine?.view?.ctrl;
+      if (c) c.analog = { x, z };
+      if (x || z) store.emit('chat-collapse'); // đang đi thì thu chat lại, khỏi che nút
+    });
   }
   // Hành động (nhảy, cúi chào…) – phím 7 8 9 0
   const sep = document.createElement('span'); sep.className = 'emoji-sep'; bar.append(sep);
@@ -142,24 +149,7 @@ function setupHud() {
     b.onclick = () => socket.emit('emote:send', type);
     bar.append(b);
   });
-  // 🎭 Bảng biểu cảm (nút 🎭 hoặc phím Q)
-  const panel = document.createElement('div');
-  panel.id = 'emote-panel'; panel.hidden = true;
-  panel.innerHTML = '<b>Biểu cảm</b><div class="emote-grid"></div>';
-  EMOTE_LIST.forEach((em, i) => {
-    const b = document.createElement('button');
-    b.innerHTML = `<span>${em.icon}</span><small></small>`;
-    b.querySelector('small').textContent = em.name + (i < 4 ? ` · ${[7, 8, 9, 0][i]}` : '');
-    b.onclick = () => { socket.emit('emote:send', em.id); panel.hidden = true; };
-    panel.querySelector('.emote-grid').append(b);
-  });
-  document.getElementById('hud').append(panel);
-  const more = document.createElement('button');
-  more.className = 'emote-more'; more.innerHTML = '🎭<small>Q</small>'; more.title = 'Biểu cảm';
-  more.onclick = (e) => { e.stopPropagation(); panel.hidden = !panel.hidden; document.body.classList.remove('emoji-open'); };
-  bar.append(more);
-  store.on('toggle-emotes', () => { panel.hidden = !panel.hidden; });
-  document.addEventListener('pointerdown', (e) => { if (!panel.hidden && !panel.contains(e.target) && e.target !== more && !more.contains(e.target)) panel.hidden = true; });
+  initEmotePanel(bar);
   store.on('toast', (t) => toast(t, 3000));
 
   $('btn-fireworks').onclick = () => socket.emit('fx:fireworks');
@@ -238,7 +228,7 @@ function setupHud() {
   store.on('near-wheel', (v) => { hintState.wheel = v; paintHint(); });
   store.on('wheel-busy', (v) => { hintState.wheelBusy = v; if (!v) hintState.wheelDone = true; paintHint(); });
 
-  initShrinePanel();
+  initShrinePanel({ getWorld: () => world, toast });
 
   // 🎡 Thẻ kết quả vòng quay món ăn
   const wp = $('wheel-panel');
@@ -270,80 +260,6 @@ function setupHud() {
     world.activate();
     socket.disconnect().connect(); // vào lại với ngoại hình mới
   };
-}
-
-// ---------- 🙏 Bàn thờ Ông Chủ ----------
-function initShrinePanel() {
-  const el = document.createElement('div');
-  el.id = 'shrine-panel'; el.hidden = true;
-  el.innerHTML = `
-    <div class="shrine-head"><span>🙏</span><b>Bàn thờ Ông Chủ Hội Quán</b><button class="btn btn-ghost btn-sm" data-close>✕</button></div>
-    <p class="shrine-stats"><span data-incense>0</span> nén hương · <span data-bows>0</span> lần lạy</p>
-    <p class="shrine-bless" data-bless hidden></p>
-    <div class="shrine-actions">
-      <button class="btn btn-primary" data-act="incense">🕯️ Thắp hương</button>
-      <button class="btn btn-ghost" data-act="kneel">🧎 Quỳ lạy</button>
-      <button class="btn btn-ghost" data-act="fortune">🎋 Xin quẻ</button>
-    </div>
-    <div class="fortune-card" data-fortune hidden></div>
-    <form class="shrine-wish" data-wish><input maxlength="80" placeholder="Viết điều ước gửi Ông Chủ…" autocomplete="off"><button class="btn btn-primary btn-sm">🙏 Cầu</button></form>
-    <b class="shrine-sub">📜 Sổ ước nguyện</b>
-    <ul class="shrine-wishes" data-wishes></ul>
-    <p class="muted small">Thắp hương được phù hộ 5 phút (câu cá dễ ra cá hiếm). Cứ 10 nén Ông Chủ sẽ hiển linh!</p>`;
-  document.getElementById('hud').append(el);
-  const q = (sel) => el.querySelector(sel);
-  let blessUntil = 0, wishes = [];
-  const paintWishes = () => {
-    const ul = q('[data-wishes]');
-    ul.replaceChildren(...wishes.slice(-12).reverse().map((w) => { const li = document.createElement('li'); const b = document.createElement('b'); b.textContent = w.name; li.append(b, ` ${w.text}`); return li; }));
-    if (!wishes.length) ul.innerHTML = '<li class="muted">Chưa có ai cầu nguyện… hãy là người đầu tiên!</li>';
-  };
-  const paintBless = () => {
-    const left = blessUntil - Date.now(), p = q('[data-bless]');
-    p.hidden = left <= 0;
-    if (left > 0) p.textContent = `✨ Bạn đang được Ông Chủ phù hộ · còn ${Math.floor(left / 60000)}:${String(Math.floor((left % 60000) / 1000)).padStart(2, '0')}`;
-  };
-  setInterval(() => { if (!el.hidden) paintBless(); }, 1000);
-  const open = () => { el.hidden = false; paintBless(); paintWishes(); socket.emit('shrine:sync'); };
-  const close = () => { el.hidden = true; };
-  store.on('shrine-open', open);
-  q('[data-close]').onclick = close;
-  store.on('near-thing', (t) => { if (!el.hidden && !world?.nearShrine()) close(); void t; });
-  store.on('shrine-state', (st) => {
-    if (st.incense != null) q('[data-incense]').textContent = st.incense;
-    if (st.bows != null) q('[data-bows]').textContent = st.bows;
-    if (st.wishes) { wishes = st.wishes; paintWishes(); }
-  });
-  store.on('shrine-wish', (w) => { wishes.push(w); paintWishes(); });
-  q('[data-act=incense]').onclick = () => socket.emit('shrine:incense', null, (r) => {
-    if (r?.error) return toast(`🕯️ ${r.error}`);
-    blessUntil = r.blessUntil; paintBless();
-    toast('🕯️ Đã thắp hương – Ông Chủ phù hộ bạn 5 phút ✨', 3500);
-  });
-  q('[data-act=kneel]').onclick = () => { close(); world?.kneel(1); };
-  q('[data-act=fortune]').onclick = () => socket.emit('shrine:fortune', null, (r) => {
-    const card = q('[data-fortune]');
-    if (r?.error) return toast(`🎋 ${r.error}`);
-    const f = r.fortune;
-    card.hidden = false;
-    card.className = `fortune-card lv-${['Đại Cát', 'Thượng Cát', 'Cát'].includes(f.level) ? 'good' : f.level === 'Trung Bình' ? 'mid' : 'bad'}`;
-    card.innerHTML = '<span class="fi"></span><div><b></b><p></p></div>';
-    card.querySelector('.fi').textContent = f.icon;
-    card.querySelector('b').textContent = `Quẻ ${f.level}`;
-    card.querySelector('p').textContent = f.text;
-    sound.play(card.classList.contains('lv-bad') ? 'wrong' : 'correct');
-  });
-  q('[data-wish]').onsubmit = (e) => {
-    e.preventDefault();
-    const input = q('[data-wish] input'), text = input.value.trim();
-    if (!text) return;
-    socket.emit('shrine:wish', text, (r) => {
-      if (r?.error) return toast(`🙏 ${r.error}`);
-      input.value = ''; input.blur();
-      toast(`🙏 ${r.reply}`, 3500);
-    });
-  };
-  window.addEventListener('keydown', (e) => { if (e.key === 'Escape' && !el.hidden) close(); });
 }
 
 // ---------- 3. Phòng ----------
@@ -379,7 +295,9 @@ function setupRooms() {
     const room = store.room;
     botBtn.hidden = !BOT_ROOMS.includes(room);
     const has = store.inRoom(room).some((p) => p.bot);
-    botBtn.textContent = has ? '🤖 Mời bot ra' : '🤖 Chơi với bot';
+    const narrow = matchMedia('(max-width: 700px)').matches; // điện thoại: nút gọn để chừa chỗ cho ô video
+    botBtn.textContent = has ? (narrow ? '🤖✕' : '🤖 Mời bot ra') : (narrow ? '🤖＋' : '🤖 Chơi với bot');
+    botBtn.title = has ? 'Mời bot ra' : 'Chơi với bot';
     botBtn.classList.toggle('btn-primary', !has);
     botBtn.classList.toggle('btn-ghost', has);
   };

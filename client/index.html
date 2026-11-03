@@ -8,9 +8,41 @@
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🏮</text></svg>" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&family=Pixelify+Sans:wght@500;700&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@500;600;700;800&family=Outfit:wght@400;500;600;700&family=Pixelify+Sans:wght@500;700&display=swap" rel="stylesheet" />
 </head>
 <body>
+  <!-- Cảnh nền màn đăng nhập / tạo nhân vật: trời đêm, đèn lồng bay, dãy mái ngói -->
+  <div id="intro-bg" aria-hidden="true">
+    <div class="moon"></div>
+    <svg class="roofs" viewBox="0 0 1600 260" preserveAspectRatio="xMidYMax slice">
+      <defs>
+        <linearGradient id="rf" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#3a1f2e"/><stop offset="1" stop-color="#160c16"/></linearGradient>
+        <linearGradient id="wl" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#26182a"/><stop offset="1" stop-color="#0d0810"/></linearGradient>
+      </defs>
+      <path fill="#1a1020" opacity=".55" d="M0 150 Q120 120 240 140 T480 130 T760 145 T1040 128 T1320 142 T1600 132 V260 H0Z"/>
+      <g fill="url(#wl)">
+        <rect x="40" y="150" width="260" height="110"/><rect x="360" y="165" width="200" height="95"/><rect x="620" y="140" width="330" height="120"/>
+        <rect x="1010" y="160" width="230" height="100"/><rect x="1300" y="148" width="270" height="112"/>
+      </g>
+      <g fill="url(#rf)">
+        <path d="M10 156 Q30 150 40 140 L170 98 L300 140 Q310 150 330 156 Q170 146 10 156Z"/>
+        <path d="M335 170 Q352 164 360 156 L460 122 L560 156 Q568 164 585 170 Q460 162 335 170Z"/>
+        <path d="M585 146 Q608 138 620 126 L785 74 L950 126 Q962 138 985 146 Q785 134 585 146Z"/>
+        <path d="M985 166 Q1002 160 1010 150 L1125 112 L1240 150 Q1248 160 1265 166 Q1125 158 985 166Z"/>
+        <path d="M1275 154 Q1292 148 1300 138 L1435 94 L1570 138 Q1578 148 1595 154 Q1435 144 1275 154Z"/>
+      </g>
+      <g class="win" fill="#ffc46b">
+        <rect x="80" y="180" width="34" height="26" rx="3"/><rect x="226" y="180" width="34" height="26" rx="3"/><rect x="152" y="200" width="30" height="60" rx="3" fill="#e9984a"/>
+        <rect x="400" y="190" width="30" height="24" rx="3"/><rect x="490" y="190" width="30" height="24" rx="3"/>
+        <rect x="660" y="170" width="40" height="30" rx="3"/><rect x="860" y="170" width="40" height="30" rx="3"/><rect x="765" y="190" width="40" height="70" rx="3" fill="#e9984a"/>
+        <rect x="1050" y="186" width="32" height="26" rx="3"/><rect x="1170" y="186" width="32" height="26" rx="3"/>
+        <rect x="1340" y="176" width="36" height="28" rx="3"/><rect x="1490" y="176" width="36" height="28" rx="3"/><rect x="1418" y="196" width="34" height="64" rx="3" fill="#e9984a"/>
+      </g>
+      <g class="string" stroke="#5a3a3a" stroke-width="2" fill="none"><path d="M300 140 Q330 175 360 156"/><path d="M950 126 Q980 170 1010 150"/></g>
+      <g fill="#ff4d3d"><circle cx="318" cy="162" r="7"/><circle cx="342" cy="164" r="7"/><circle cx="968" cy="152" r="8"/><circle cx="992" cy="156" r="8"/></g>
+    </svg>
+  </div>
+
   <!-- Màn hình mật khẩu -->
   <section id="screen-login" class="screen" hidden>
     <form class="card login-card" id="login-form">
@@ -88,7 +120,7 @@
     <div class="room-bar-actions">
       <button class="btn btn-ghost btn-sm" id="btn-bot" hidden>🤖 Chơi với bot</button>
       <button class="btn btn-icon" id="btn-photo-room" title="Chụp ảnh">📸</button>
-      <button class="btn btn-icon rtc-btn off" id="btn-mic" title="Bật/tắt mic (M)">🎙️</button>
+      <button class="btn btn-icon rtc-btn off" id="btn-mic" title="Bật/tắt mic">🎙️</button>
       <button class="btn btn-icon rtc-btn off" id="btn-cam" title="Bật/tắt cam">📷</button>
       <button class="btn btn-ghost btn-sm" id="btn-leave" title="Esc">⬅ Rời phòng</button>
     </div>

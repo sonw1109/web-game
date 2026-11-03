@@ -15,8 +15,11 @@ const STAND_Y = PEDESTAL_H + LOTUS_H;
 const MAX_STICKS = 12;
 
 function M(color, o = {}) {
-  return Q.cheapMaterials ? new THREE.MeshLambertMaterial({ color, emissive: o.emissive, emissiveIntensity: o.emissiveIntensity ?? 1, transparent: o.transparent, opacity: o.opacity })
-    : new THREE.MeshStandardMaterial({ color, roughness: 0.5, metalness: 0, ...o });
+  if (!Q.cheapMaterials) return new THREE.MeshStandardMaterial({ color, roughness: 0.5, metalness: 0, ...o });
+  // Lambert không có roughness/metalness; chỉ chép những khóa có giá trị (khóa undefined làm three.js cảnh báo)
+  const opts = { color };
+  for (const k of ['emissive', 'emissiveIntensity', 'transparent', 'opacity']) if (o[k] !== undefined) opts[k] = o[k];
+  return new THREE.MeshLambertMaterial(opts);
 }
 
 /** Gom các khối theo vật liệu → mỗi vật liệu 1 mesh. */

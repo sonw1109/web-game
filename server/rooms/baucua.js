@@ -25,14 +25,24 @@ export function registerBauCua(io, world) {
     deadline: 0,
     dice: null,
     bets: new Map(),          // id -> {sym: amount}
-    balances: new Map(),      // id -> điểm
+    betNames: new Map(),      // id -> tên (người cược rời bàn giữa ván vẫn được trả/hoàn đúng người)
+    balances: new Map(),      // TÊN -> điểm (tải lại trang không bị reset về 1000)
     lastDelta: {},            // id -> +/- ván vừa rồi
     history: [],              // 10 lần lắc gần nhất
     round: 0,
   };
   const members = () => world.inRoom('baucua');
   const humans = () => members().filter((p) => !p.bot);
-  const bal = (id) => { if (!g.balances.has(id)) g.balances.set(id, START_BALANCE); return g.balances.get(id); };
+  const nameOf = (id) => g.betNames.get(id) ?? world.get(id)?.name;
+  /** Số dư theo tên người chơi. */
+  const bal = (id) => { const k = nameOf(id); if (k == null) return 0; if (!g.balances.has(k)) g.balances.set(k, START_BALANCE); return g.balances.get(k); };
+  const setBal = (id, v) => { const k = nameOf(id); if (k != null) g.balances.set(k, v); };
+  const staked = (b) => Object.values(b).reduce((a, x) => a + x, 0);
+  /** Hoàn lại toàn bộ tiền đang cược (bàn đóng giữa chừng). */
+  function refundAll() {
+    for (const [id, b] of g.bets) setBal(id, bal(id) + staked(b));
+    g.bets = new Map(); g.betNames = new Map();
+  }
   const sys = (text) => io.to(ROOM).emit('chat:message', { system: true, text, ts: Date.now() });
 
   const view = () => {
@@ -57,9 +67,10 @@ export function registerBauCua(io, world) {
     g.phase = 'betting';
     g.dice = null;
     g.bets = new Map();
+    g.betNames = new Map();
     g.lastDelta = {};
     g.deadline = Date.now() + BET_MS;
-    for (const p of members()) if (bal(p.id) < CHIPS[0]) { g.balances.set(p.id, 500); sys(`💸 ${p.name} hết điểm – nhà cái cứu trợ 500 điểm`); }
+    for (const p of members()) if (bal(p.id) < CHIPS[0]) { setBal(p.id, 500); sys(`💸 ${p.name} hết điểm – nhà cái cứu trợ 500 điểm`); }
     broadcast();
   }
 
@@ -75,21 +86,21 @@ export function registerBauCua(io, world) {
     g.phase = 'result';
     g.deadline = Date.now() + RESULT_MS;
     for (const [id, b] of g.bets) {
-      const staked = Object.values(b).reduce((a, x) => a + x, 0);
       const back = payout(b, g.dice);
-      g.balances.set(id, bal(id) + back);
-      g.lastDelta[id] = back - staked;
+      setBal(id, bal(id) + back);
+      g.lastDelta[id] = back - staked(b);
     }
     g.history = [g.dice, ...g.history].slice(0, 10);
     const big = Object.entries(g.lastDelta).sort((a, b) => b[1] - a[1])[0];
-    if (big && big[1] > 0) sys(`🎲 ${world.get(big[0])?.name ?? '?'} thắng đậm +${big[1]} điểm!`);
+    if (big && big[1] > 0) sys(`🎲 ${nameOf(big[0]) ?? '?'} thắng đậm +${big[1]} điểm!`);
     broadcast();
   }
 
   function bet(id, sym, amount) {
     if (world.get(id)?.room !== 'baucua' || g.phase !== 'betting' || !SYMBOLS.includes(sym) || !CHIPS.includes(amount)) return false;
     if (bal(id) < amount) return false;
-    g.balances.set(id, bal(id) - amount);       // giữ tiền cược ngay
+    g.betNames.set(id, world.get(id).name);
+    setBal(id, bal(id) - amount);       // giữ tiền cược ngay
     const b = g.bets.get(id) || {};
     b[sym] = (b[sym] || 0) + amount;
     g.bets.set(id, b);
@@ -100,8 +111,8 @@ export function registerBauCua(io, world) {
   function clearBets(id) {
     const b = g.bets.get(id);
     if (g.phase !== 'betting' || !b) return;
-    g.balances.set(id, bal(id) + Object.values(b).reduce((a, x) => a + x, 0));
-    g.bets.delete(id);
+    setBal(id, bal(id) + staked(b));
+    g.bets.delete(id); g.betNames.delete(id);
     broadcast();
   }
 
@@ -111,7 +122,7 @@ export function registerBauCua(io, world) {
     const admin = world.get(adminId), target = world.get(targetId);
     amount = Math.trunc(Number(amount));
     if (!admin?.admin || !target || target.room !== 'baucua' || !Number.isFinite(amount) || !amount || Math.abs(amount) > MAX_GRANT) return false;
-    g.balances.set(targetId, Math.max(0, bal(targetId) + amount));
+    setBal(targetId, Math.max(0, bal(targetId) + amount));
     return true;
   }
 
@@ -140,7 +151,12 @@ export function registerBauCua(io, world) {
 
   world.events.on('room', ({ room, prev }) => {
     if (room === 'baucua' || prev === 'baucua') {
-      if (prev === 'baucua' && !humans().length) { g.phase = 'idle'; g.deadline = 0; }
+      if (prev === 'baucua' && !humans().length) {
+        // không còn ai: đã lắc thì mở bát trả thưởng luôn, chưa lắc thì hoàn tiền cược
+        if (g.phase === 'rolling') reveal();
+        else if (g.phase === 'betting') refundAll(); // (ván đã trả thưởng thì không hoàn nữa)
+        g.phase = 'idle'; g.deadline = 0;
+      }
       broadcast();
     }
   });

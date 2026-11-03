@@ -81,10 +81,12 @@ export function registerTyping(io, world) {
       r.finishedMs = elapsed;
       r.place = ++g.finishOrder;
       sys(`🏁 ${world.get(id)?.name} về đích thứ ${r.place} – ${r.wpm} từ/phút`);
-      if ([...g.racers.values()].every((x) => x.finishedMs || !world.get(x.id) || world.get(x.id).room !== 'typing')) return finish();
+      if (allDone()) return finish();
     }
     broadcast();
   }
+
+  function allDone() { return [...g.racers.values()].every((x) => x.finishedMs || !world.get(x.id) || world.get(x.id).room !== 'typing'); }
 
   io.on('connection', (socket) => {
     socket.on('typing:sync', () => world.get(socket.id)?.room === 'typing' && socket.emit('typing:state', view()));
@@ -95,6 +97,7 @@ export function registerTyping(io, world) {
   world.events.on('room', ({ p, room, prev }) => {
     if (room !== 'typing' && prev !== 'typing') return;
     if (prev === 'typing' && g.phase !== 'idle' && !members().some((m) => !m.bot)) { g.phase = 'idle'; g.racers.clear(); }
+    else if (prev === 'typing' && g.phase === 'racing' && allDone()) return finish(); // ai còn lại cũng đã về đích
     broadcast();
     void p;
   });

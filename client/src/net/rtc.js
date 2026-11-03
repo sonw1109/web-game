@@ -86,6 +86,8 @@ async function ensurePeer(id) {
   if (peers.has(id)) return peers.get(id);
   const p = new Peer(id, await getIce());
   if (peers.has(id)) { p.close(); return peers.get(id); } // tạo trùng trong lúc chờ fetch
+  // đã rời phòng (hoặc người kia đã đi) trong lúc chờ lấy cấu hình ICE → bỏ, không để kết nối mồ côi
+  if (!room || !store.inRoom(room).some((m) => m.id === id)) { p.close(); return null; }
   peers.set(id, p);
   notify();
   return p;

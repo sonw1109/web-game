@@ -1,6 +1,7 @@
 // 🖼️ Phòng Tranh: đăng ảnh chung, thả tim, chế độ đèn đồng bộ cả phòng.
 // Ảnh lưu ra đĩa (GALLERY_DIR, mặc định thư mục tạm của hệ thống) để restart server không mất.
 import express from 'express';
+import { rateLimiter } from '../world.js';
 import { randomBytes } from 'node:crypto';
 import { mkdirSync, readFileSync, writeFileSync, unlinkSync, existsSync } from 'node:fs';
 import os from 'node:os';
@@ -59,8 +60,10 @@ export function registerGallery(app, io, world, password) {
   const lastAnnounce = new Map(); // tên → thời điểm báo gần nhất (treo nhiều ảnh 1 lúc chỉ báo 1 lần)
 
   // ---- Upload qua HTTP (socket.io giới hạn 1MB/tin nhắn) ----
+  const uploadLimit = rateLimiter(6, 60_000); // tối đa 6 ảnh / phút mỗi máy
   app.post('/api/gallery/upload', express.raw({ type: () => true, limit: MAX_BYTES }), (req, res) => {
     if (req.get('x-password') !== password) return res.status(401).json({ error: 'Sai mật khẩu' });
+    if (!uploadLimit(req.ip || 'ip')) return res.status(429).json({ error: 'Treo ảnh nhanh quá, đợi 1 phút nhé' });
     const sid = req.get('x-socket-id');
     const p = world.get(sid);
     if (!p) return res.status(403).json({ error: 'Bạn cần đang online trong Hội Quán' });
@@ -115,6 +118,9 @@ export function registerGallery(app, io, world, password) {
       if (!inRoom(socket.id)) return;
       const ph = state.photos.find((p) => p.id === id);
       if (!ph) return;
+      // chỉ người treo ảnh (cùng tên) hoặc admin mới gỡ được
+      const me = world.get(socket.id);
+      if (ph.by !== me.name && ph.byId !== socket.id && !me.admin) return socket.emit('chat:message', { system: true, text: '🔒 Chỉ người treo ảnh hoặc admin mới gỡ được ảnh này', ts: Date.now() });
       state.photos = state.photos.filter((p) => p !== ph);
       try { unlinkSync(path.join(DIR, `${ph.id}.${ph.ext}`)); } catch {}
       save();

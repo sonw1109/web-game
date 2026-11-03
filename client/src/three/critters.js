@@ -6,7 +6,7 @@ import * as THREE from 'three';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { mat } from './avatar.js';
 import { buildPet } from './pet.js';
-import { PLAZA, GAZEBO } from '../game/map.js';
+import { CRITTERS, critterAt } from '../game/wander.js';
 
 const S = new THREE.SphereGeometry(1, 12, 9), C = new THREE.ConeGeometry(1, 1, 8), B = new THREE.BoxGeometry(1, 1, 1), CY = new THREE.CylinderGeometry(1, 1, 1, 8);
 function part(g, geo, color, [x, y, z], [sx, sy, sz], rot) {
@@ -77,35 +77,6 @@ function bake(group, scale = 1) {
   return merged;
 }
 
-// ---------- đường đi tất định theo thời gian ----------
-function hash(a, b) {
-  let h = Math.imul((a | 0) ^ 0x9e3779b9, 0x85ebca6b) ^ Math.imul((b % 1e6) | 0, 0xc2b2ae35);
-  h = Math.imul(h ^ (h >>> 15), 0x27d4eb2d); h ^= h >>> 13;
-  return (h >>> 0) / 4294967296;
-}
-const smooth = (u) => u * u * (3 - 2 * u);
-
-/**
- * kind, name, sound, scale, range (khoảng cách vuốt ve được)
- * rect: [x, z, w, h] khu đi lại · ring: chạy vòng quanh đài phun nước · fixed: đứng yên · follow: đi sau con số …
- */
-const DEFS = [
-  { kind: 'duck', name: 'Vịt mẹ', icon: '🦆', sound: 'quack', rect: [45, 21, 4.2, 7], water: true, speed: 0.55, seg: 7, range: 2.6 },
-  { kind: 'duckling', name: 'Vịt con', icon: '🐥', sound: 'peep', follow: 0, lag: 0.45, water: true, range: 2.6 },
-  { kind: 'duckling', name: 'Vịt con', icon: '🐥', sound: 'peep', follow: 0, lag: 0.9, water: true, range: 2.6 },
-  { kind: 'duckling', name: 'Vịt con', icon: '🐥', sound: 'peep', follow: 0, lag: 1.35, water: true, range: 2.6 },
-  { kind: 'duck', name: 'Vịt bầu', icon: '🦆', sound: 'quack', rect: [53, 21, 4.2, 7], water: true, speed: 0.5, seg: 8, range: 2.6 },
-  { kind: 'duck', name: 'Vịt cỏ', icon: '🦆', sound: 'quack', rect: [2.7, 9.7, 3.6, 2.6], water: true, speed: 0.35, seg: 9, range: 2.4 },
-  { kind: 'hen', name: 'Gà mái', icon: '🐔', sound: 'cluck', rect: [39, 37, 6, 5], speed: 0.9, seg: 5, range: 1.5 },
-  { kind: 'hen', name: 'Gà mái', icon: '🐔', sound: 'cluck', rect: [39, 37, 6, 5], speed: 0.8, seg: 6, range: 1.5 },
-  { kind: 'chick', name: 'Gà con', icon: '🐤', sound: 'peep', follow: 6, lag: 0.7, range: 1.4 },
-  { kind: 'dog', name: 'Cún Vàng', icon: '🐶', sound: 'woof', ring: true, speed: 1.6, seg: 6, range: 1.5 },
-  { kind: 'cat', name: 'Mèo Mướp', icon: '🐱', sound: 'meow', fixed: [GAZEBO.x + 1.2, 0.25, GAZEBO.y + 0.2, -1.2], sleep: true, range: 1.6 },
-  { kind: 'bunny', name: 'Thỏ Bông', icon: '🐰', sound: 'squeak', rect: [47.5, 9.8, 4.5, 3], speed: 1.1, seg: 5, hop: true, range: 1.4 },
-  { kind: 'bunny', name: 'Thỏ Ngọc', icon: '🐰', sound: 'squeak', rect: [56, 9.8, 4.5, 3], speed: 1.1, seg: 6, hop: true, range: 1.4 },
-  { kind: 'buffalo', name: 'Trâu Đen', icon: '🐃', sound: 'moo', rect: [3, 27.5, 6, 4], speed: 0.35, seg: 12, range: 2.2 },
-];
-
 const MODELS = {
   duck: () => duck(false), duckling: () => duck(true), hen, buffalo,
   chick: () => buildPet('chick'), dog: () => buildPet('dog'), cat: () => buildPet('cat'), bunny: () => buildPet('bunny'),
@@ -116,7 +87,7 @@ export class Critters {
     this.scene = scene;
     const material = mat('#ffffff', { vertexColors: true });
     const geos = {};
-    this.list = DEFS.map((d, i) => {
+    this.list = CRITTERS.map((d, i) => {
       geos[d.kind] ||= bake(MODELS[d.kind](), d.kind === 'cat' || d.kind === 'dog' ? 1.2 : 1);
       const mesh = new THREE.Mesh(geos[d.kind], material);
       mesh.castShadow = true;
@@ -125,43 +96,13 @@ export class Critters {
       const root = new THREE.Group();
       root.add(mesh);
       scene.add(root);
-      return { ...d, i, root, mesh, seed: i * 7919 + 13, reactT: 0, rot: 0, moving: false, x: 0, z: 0 };
+      return { ...d, root, mesh, reactT: 0, rot: 0, moving: false, x: 0, z: 0 };
     });
     this.butterflies = this.buildButterflies();
   }
 
-  /** Vị trí + hướng + đang đi? của con thứ i tại thời điểm t (giây). */
-  at(d, t) {
-    if (d.fixed) return { x: d.fixed[0], z: d.fixed[2], rot: d.fixed[3], moving: false };
-    if (d.follow != null) {
-      const lead = this.list[d.follow], p = this.at(lead, t - d.lag), q = this.at(lead, t - d.lag - 0.15);
-      const moving = Math.hypot(p.x - q.x, p.z - q.z) > 0.01;
-      const rot = moving ? Math.atan2(p.x - q.x, p.z - q.z) : p.rot;
-      // xếp hàng sau lưng (khi mẹ dừng lại thì con không chồng lên nhau)
-      const sp = d.lag * 0.75; // ~0.35m mỗi con
-      return { x: p.x - Math.sin(rot) * sp, z: p.z - Math.cos(rot) * sp, rot, moving };
-    }
-    const T = d.seg, k = Math.floor(t / T), u = t - k * T;
-    const P = (n) => {
-      if (d.ring) { const a = n * 0.8 + Math.sin(n * 1.3 + d.seed) * 0.6, r = 8.4 + hash(d.seed, n) * 0.8; return [PLAZA.x + Math.cos(a) * r, PLAZA.z + Math.sin(a) * r]; }
-      const [x, z, w, h] = d.rect;
-      return [x + hash(d.seed, n * 2) * w, z + hash(d.seed, n * 2 + 1) * h];
-    };
-    const A = P(k), Bp = P(k + 1);
-    const dist = Math.hypot(Bp[0] - A[0], Bp[1] - A[1]);
-    const travel = Math.min(T * 0.75, dist / d.speed);
-    const rot = Math.atan2(Bp[0] - A[0], Bp[1] - A[1]);
-    if (u >= travel) return { x: Bp[0], z: Bp[1], rot, moving: false };
-    let f = smooth(u / travel);
-    if (d.ring) { // vòng quanh: nội suy theo góc để không cắt ngang đài phun nước
-      const a0 = Math.atan2(A[1] - PLAZA.z, A[0] - PLAZA.x), r0 = Math.hypot(A[0] - PLAZA.x, A[1] - PLAZA.z);
-      let a1 = Math.atan2(Bp[1] - PLAZA.z, Bp[0] - PLAZA.x); const r1 = Math.hypot(Bp[0] - PLAZA.x, Bp[1] - PLAZA.z);
-      a1 = a0 + Math.atan2(Math.sin(a1 - a0), Math.cos(a1 - a0));
-      const a = a0 + (a1 - a0) * f, r = r0 + (r1 - r0) * f, dir = Math.sign(a1 - a0) || 1;
-      return { x: PLAZA.x + Math.cos(a) * r, z: PLAZA.z + Math.sin(a) * r, rot: Math.atan2(-Math.sin(a) * dir, Math.cos(a) * dir), moving: true };
-    }
-    return { x: A[0] + (Bp[0] - A[0]) * f, z: A[1] + (Bp[1] - A[1]) * f, rot, moving: true };
-  }
+  /** Vị trí + hướng + đang đi? (xem game/wander.js). */
+  at(c, t) { return critterAt(c.i, t); }
 
   /** Được vuốt ve → nhảy cẫng + xoay. */
   react(i) { const c = this.list[i]; if (c) c.reactT = 1.4; }

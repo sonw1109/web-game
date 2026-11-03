@@ -178,6 +178,9 @@ export function createGalleryRoom() {
     lbEl('lbLike').textContent = `${liked ? '❤️' : '🤍'} ${p.likes || ''}`.trim();
     lbEl('lbLike').title = p.likedBy.length ? `Thích: ${p.likedBy.join(', ')}` : 'Thả tim';
     lbEl('lbDownload').href = p.url;
+    // nút gỡ ảnh chỉ hiện với người treo ảnh hoặc admin (server cũng tự kiểm tra)
+    const del = lightbox.querySelector('[data-act="delete"]');
+    if (del) del.hidden = !(p.by === myName() || store.players.get(store.selfId)?.admin);
   }
   const stopSlide = () => { clearInterval(slideTimer); slideTimer = null; lbEl('lbSlide').textContent = '▶ Trình chiếu'; };
   lightbox.addEventListener('click', (e) => {
@@ -241,8 +244,9 @@ export function createGalleryRoom() {
   };
   const onKey = (e) => {
     if (lbIndex < 0 || ['INPUT', 'TEXTAREA'].includes(document.activeElement?.tagName)) return;
-    if (e.key === 'ArrowLeft') { stopSlide(); step(-1); }
-    if (e.key === 'ArrowRight') { stopSlide(); step(1); }
+    // phím mũi tên chỉ lật ảnh, không cho lọt xuống làm nhân vật đi sau lớp ảnh
+    if (e.key === 'ArrowLeft') { e.preventDefault(); e.stopImmediatePropagation(); stopSlide(); step(-1); }
+    if (e.key === 'ArrowRight') { e.preventDefault(); e.stopImmediatePropagation(); stopSlide(); step(1); }
     if (e.key === 'Escape') { e.stopImmediatePropagation(); closeLightbox(); } // Esc đóng ảnh trước, chưa rời phòng
   };
 

@@ -22,3 +22,12 @@ test('rateLimiter chặn khi vượt ngưỡng', () => {
   assert.deepEqual([1, 2, 3, 4, 5].map(() => lim('a')), [true, true, true, false, false]);
   assert.equal(lim('b'), true); // người khác không bị ảnh hưởng
 });
+
+test('rateLimiter tự dọn các key đã hết hạn (không phình bộ nhớ)', async () => {
+  const { rateLimiter } = await import('./world.js');
+  const lim = rateLimiter(1, 20);
+  for (let i = 0; i < 50; i++) lim(`k${i}`);
+  assert.equal(lim.size(), 50);
+  await new Promise((r) => setTimeout(r, 1150));
+  assert.equal(lim.size(), 0);
+});

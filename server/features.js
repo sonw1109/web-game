@@ -71,8 +71,9 @@ export function registerFeatures(io, world, { lake }) {
   mkdirSync(DIR, { recursive: true });
   const FILE = path.join(DIR, 'fish.json');
   /** @type {Record<string, {points:number, total:number, species: Record<string,{count:number,best:number}>}>} */
-  let book = {};
-  try { book = JSON.parse(readFileSync(FILE, 'utf8')); } catch { /* lần đầu */ }
+  // object không có prototype: tên người chơi như "__proto__", "constructor" không phá được sổ
+  let book = Object.create(null);
+  try { Object.assign(book, JSON.parse(readFileSync(FILE, 'utf8'))); } catch { /* lần đầu */ }
   let saveT = null;
   const save = () => { clearTimeout(saveT); saveT = setTimeout(() => { try { writeFileSync(FILE, JSON.stringify(book)); } catch {} }, 1000); };
   const sessions = new Map(); // id -> { state, biteAt, timers }
@@ -89,7 +90,7 @@ export function registerFeatures(io, world, { lake }) {
   };
   const leaderboard = () => Object.entries(book).map(([name, b]) => ({ name, points: b.points, total: b.total, kinds: Object.keys(b.species).length }))
     .sort((a, b) => b.points - a.points).slice(0, 10);
-  const collectionOf = (name) => book[name] || { points: 0, total: 0, species: {} };
+  const collectionOf = (name) => (Object.hasOwn(book, name) ? book[name] : { points: 0, total: 0, species: {} });
 
   io.on('connection', (socket) => {
     socket.on('fish:cast', (d) => {
@@ -114,7 +115,7 @@ export function registerFeatures(io, world, { lake }) {
       let f = pickFish();
       if (blessed) { const g = pickFish(); if (g.pts > f.pts) f = g; }
       const weight = Math.round((f.w[0] + Math.random() * (f.w[1] - f.w[0])) * 100) / 100;
-      const b = (book[p.name] ||= { points: 0, total: 0, species: {} });
+      const b = (book[p.name] ||= { points: 0, total: 0, species: Object.create(null) });
       const sp = (b.species[f.id] ||= { count: 0, best: 0 });
       const isNew = sp.count === 0;
       sp.count++; sp.best = Math.max(sp.best, weight);

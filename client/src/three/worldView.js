@@ -22,6 +22,16 @@ import { mat, textures, tree, lamp, bench, house, fountain } from './props.js';
 import { MAP_W, MAP_H, BUILDINGS, SPAWN, FOUNTAIN, POND, GROUND, LAKE, DOCK, GARDEN, GAZEBO, PLAZA, BENCHES, SEATS, SHRINE, STATUE, ALTAR, MATS, inHouse, treePositions } from '../game/map.js';
 
 const PX = 16;                 // 1 mét = 16 px phía server
+// Hình khối dùng chung cho cần câu (tạo 1 lần, không tạo lại mỗi lần quăng)
+const FISH_GEO = { rod: new THREE.CylinderGeometry(0.012, 0.025, 1.5, 6), bobber: new THREE.SphereGeometry(0.07, 10, 8), ring: new THREE.RingGeometry(0.1, 0.16, 20) };
+const LINE_MAT = new THREE.LineBasicMaterial({ color: '#f5f5f5', transparent: true, opacity: 0.8 });
+
+/** Độ cao mặt sàn tại (x, z): bến gỗ và nền chòi nghỉ cao hơn mặt đất. */
+export function groundY(x, z) {
+  if (x > DOCK.x && x < DOCK.x + DOCK.w && z > DOCK.y - 0.25 && z < DOCK.y + DOCK.h + 0.25) return 0.24;
+  if (Math.hypot(x - GAZEBO.x, z - GAZEBO.y) < 2.2) return 0.245;
+  return 0;
+}
 const SEND_MS = 66;
 const DOOR_RANGE = 1.3;
 
@@ -431,32 +441,37 @@ export class WorldView {
     const bz = THREE.MathUtils.clamp(z + (dz / len) * 2.6, L.y + 0.5, L.y + L.h - 0.5);
     const ang = Math.atan2(bx - x, bz - z);
     this.me.faceTo(ang); this.ctrl.angle = ang;
-    this.fishing = { state: 'waiting', castAt: performance.now() };
+    const session = (this.fishing = { state: 'waiting', castAt: performance.now(), confirmed: false });
     socket.emit('fish:cast', { x: bx, z: bz });
+    setTimeout(() => { if (this.fishing === session && !session.confirmed) { this.fishing = null; store.emit('fish', { state: 'idle' }); } }, 2500);
     store.emit('fish', { state: 'waiting' });
   }
   showFisher(id, on, bx, bz) {
     const old = this.fishers.get(id);
-    if (old) { old.rod.removeFromParent(); old.line.removeFromParent(); old.bobber.removeFromParent(); old.ring.removeFromParent(); this.fishers.delete(id); }
+    if (old) {
+      old.rod.removeFromParent(); old.line.removeFromParent(); old.bobber.removeFromParent(); old.ring.removeFromParent();
+      old.line.geometry.dispose(); old.ring.material.dispose(); // phần riêng của mỗi lần câu
+      this.fishers.delete(id);
+    }
     if (!on) return;
     const av = id === store.selfId ? this.me : this.remotes.get(id)?.av;
     if (!av) return;
     const rod = new THREE.Group();
-    const stick = new THREE.Mesh(new THREE.CylinderGeometry(0.012, 0.025, 1.5, 6), mat('#6b4226'));
+    const stick = new THREE.Mesh(FISH_GEO.rod, mat('#6b4226'));
     stick.position.y = 0.75; rod.add(stick);
     rod.position.set(0.12, 0.38, 0.25); rod.rotation.x = 0.95;
     av.root.add(rod);
-    const line = new THREE.Line(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(), new THREE.Vector3()]), new THREE.LineBasicMaterial({ color: '#f5f5f5', transparent: true, opacity: 0.8 }));
+    const line = new THREE.Line(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(), new THREE.Vector3()]), LINE_MAT);
     line.frustumCulled = false;
-    const bobber = new THREE.Mesh(new THREE.SphereGeometry(0.07, 10, 8), mat('#ff3b30', { emissive: '#ff3b30', emissiveIntensity: 0.4 }));
-    const ring = new THREE.Mesh(new THREE.RingGeometry(0.1, 0.16, 20), new THREE.MeshBasicMaterial({ color: '#ffffff', transparent: true, opacity: 0, depthWrite: false }));
+    const bobber = new THREE.Mesh(FISH_GEO.bobber, mat('#ff3b30', { emissive: '#ff3b30', emissiveIntensity: 0.4 }));
+    const ring = new THREE.Mesh(FISH_GEO.ring, new THREE.MeshBasicMaterial({ color: '#ffffff', transparent: true, opacity: 0, depthWrite: false }));
     ring.rotation.x = -Math.PI / 2;
     bobber.position.set(bx, 0.08, bz); ring.position.set(bx, 0.05, bz);
     this.scene.add(line, bobber, ring);
     this.fishers.set(id, { rod, stick, line, bobber, ring, bite: false, bx, bz, ringT: 0 });
   }
   updateFishers(t, dt) {
-    const tip = new THREE.Vector3();
+    const tip = (this._tip ||= new THREE.Vector3());
     for (const f of this.fishers.values()) {
       f.stick.localToWorld(tip.set(0, 0.75, 0));
       const dip = f.bite ? -0.09 + Math.sin(t * 30) * 0.04 : Math.sin(t * 2.5 + f.bx) * 0.02;
@@ -681,6 +696,10 @@ export class WorldView {
       socket.emit('world:join', {
         name: this.character.name, appearance: this.character.appearance, x: this.ctrl.pos.x * PX, y: this.ctrl.pos.z * PX,
       }, ({ selfId, players }) => {
+        // id cũ đã chết: gỡ cần câu, đứng dậy khỏi ghế (server đã quên các trạng thái này)
+        if (store.selfId && store.selfId !== selfId) this.showFisher(store.selfId, false);
+        if (this.fishing) { this.fishing = null; store.emit('fish', { state: 'idle' }); }
+        this.mySeat = null; this.pendingSeat = null; this.me.sitting = false;
         store.selfId = selfId;
         store.players.clear();
         for (const id of [...this.remotes.keys()]) this.removeRemote(id);
@@ -767,6 +786,7 @@ export class WorldView {
       'wheel:spin': ({ index, by, elapsed, duration }) => { this.wheelBy = by; this.wheel.spinTo(index, elapsed, duration); store.emit('wheel-spin', { by }); store.emit('wheel-busy', true); },
       'fish:state': ({ id, fishing, x, z }) => {
         this.showFisher(id, fishing, x, z);
+        if (id === store.selfId && fishing && this.fishing) this.fishing.confirmed = true;
         if (id === store.selfId && !fishing) { this.fishing = null; store.emit('fish', { state: 'idle' }); }
       },
       'fish:bite': ({ id }) => {
@@ -826,7 +846,7 @@ export class WorldView {
     else {
       me.moving = c.moving;
       if (c.moving) me.faceTo(c.angle);
-      me.setPosition(c.pos.x, c.pos.z);
+      me.setPosition(c.pos.x, c.pos.z, groundY(c.pos.x, c.pos.z));
     }
     me.update(dt, t);
 
@@ -849,7 +869,7 @@ export class WorldView {
       else { p.x += (r.tx - p.x) * a; p.z += (r.tz - p.z) * a; }
       const seat = store.players.get(id)?.seat;
       if (seat != null && SEATS[seat]) this.placeSeated(r.av, seat);
-      else { r.av.moving = r.moving; r.av.faceTo(r.rot); p.y = 0; }
+      else { r.av.moving = r.moving; r.av.faceTo(r.rot); p.y = groundY(p.x, p.z); }
       r.av.update(dt, t);
     }
 
@@ -902,7 +922,8 @@ export class WorldView {
   afterRender() {
     if (!this.active) return;
     const proj = (v) => this.engine.project(v);
-    const put = (id, av) => { const s = proj(av.topPosition()); this.labels.position(id, s.x, s.y); };
+    const tv = (this._tv ||= new THREE.Vector3());
+    const put = (id, av) => { const s = proj(av.topPosition(tv)); this.labels.setVisible(id, s.visible); if (s.visible) this.labels.position(id, s.x, s.y); };
     put('me', this.me);
     for (const [id, r] of this.remotes) if (r.av.root.visible) put(id, r.av);
     const v = (this._cv ||= new THREE.Vector3());

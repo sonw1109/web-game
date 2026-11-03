@@ -137,6 +137,7 @@ export function createQuizRoom() {
 
   const onKey = (e) => {
     if (!state || state.phase !== 'question' || ['INPUT', 'TEXTAREA'].includes(document.activeElement?.tagName)) return;
+    if (e.ctrlKey || e.metaKey || e.altKey || e.isComposing) return; // Ctrl+C, Cmd+A… không phải là chọn đáp án
     const i = ['1', '2', '3', '4'].indexOf(e.key);
     const j = ['a', 'b', 'c', 'd'].indexOf(e.key.toLowerCase());
     const k = i >= 0 ? i : j;
