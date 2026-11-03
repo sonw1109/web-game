@@ -60,13 +60,14 @@ export function registerGallery(app, io, world, password) {
   const lastAnnounce = new Map(); // tên → thời điểm báo gần nhất (treo nhiều ảnh 1 lúc chỉ báo 1 lần)
 
   // ---- Upload qua HTTP (socket.io giới hạn 1MB/tin nhắn) ----
-  const uploadLimit = rateLimiter(6, 60_000); // tối đa 6 ảnh / phút mỗi máy
+  // Giới hạn theo TỪNG NGƯỜI (không theo IP: trên Render mọi người đi qua cùng 1 proxy → chung 1 IP)
+  const uploadLimit = rateLimiter(20, 60_000); // tối đa 20 ảnh / phút mỗi người
   app.post('/api/gallery/upload', express.raw({ type: () => true, limit: MAX_BYTES }), (req, res) => {
     if (req.get('x-password') !== password) return res.status(401).json({ error: 'Sai mật khẩu' });
-    if (!uploadLimit(req.ip || 'ip')) return res.status(429).json({ error: 'Treo ảnh nhanh quá, đợi 1 phút nhé' });
     const sid = req.get('x-socket-id');
     const p = world.get(sid);
     if (!p) return res.status(403).json({ error: 'Bạn cần đang online trong Hội Quán' });
+    if (!uploadLimit(p.name)) return res.status(429).json({ error: 'Treo ảnh nhanh quá, đợi 1 phút nhé' });
     if (state.photos.length >= MAX_PHOTOS) return res.status(400).json({ error: `Phòng đầy (${MAX_PHOTOS} ảnh). Xóa bớt ảnh cũ nhé` });
     const img = Buffer.isBuffer(req.body) ? detectImage(req.body) : null;
     if (!img) return res.status(400).json({ error: 'File không phải ảnh (JPG/PNG/WEBP/GIF)' });

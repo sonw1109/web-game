@@ -185,3 +185,19 @@ test('Phòng Tranh: chỉ người treo ảnh (hoặc admin) mới gỡ được
   A.s.emit('gallery:delete', id); await wait(120);
   assert.ok(!(await list()).includes(id), 'chủ ảnh không gỡ được');
 });
+
+test('Phòng Tranh: nhiều người cùng treo nhiều ảnh, không chặn lẫn nhau', async () => {
+  const tiny = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==', 'base64');
+  const text = Buffer.from('Comment\\0' + 'Hoi Quan test '.repeat(8));
+  const PNG = Buffer.concat([tiny.subarray(0, 33), Buffer.from([0, 0, 0, text.length]), Buffer.from('tEXt'), text, Buffer.alloc(4), tiny.subarray(33)]);
+  const people = await Promise.all(['Quang', 'Rin', 'Sang'].map((n) => join(n)));
+  for (const c of people) c.s.emit('world:setRoom', 'gallery');
+  await wait(80);
+  const send = (c) => fetch(`${URL}/api/gallery/upload`, { method: 'POST', body: PNG, headers: { 'x-password': 'pw', 'x-socket-id': c.id, 'content-type': 'application/octet-stream' } });
+  const res = await Promise.all(people.flatMap((c) => Array.from({ length: 8 }, () => send(c))));
+  const bad = res.filter((r) => !r.ok).map((r) => r.status);
+  assert.deepEqual(bad, [], `bị từ chối: ${bad.join(',')}`);
+  // người chưa online thì không treo được
+  const ghost = await fetch(`${URL}/api/gallery/upload`, { method: 'POST', body: PNG, headers: { 'x-password': 'pw', 'x-socket-id': 'khong-ton-tai', 'content-type': 'application/octet-stream' } });
+  assert.equal(ghost.status, 403);
+});
