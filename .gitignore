@@ -2,3 +2,6 @@ node_modules/
 client/dist/
 .DS_Store
 .env
+
+# ảnh chụp thử nghiệm ở thư mục gốc
+/*.png
